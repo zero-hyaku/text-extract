@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
-import { HIGHLIGHT_SWATCHES } from '../defaults';
+import { useEffect, useRef, useState } from 'react';
+import { FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../defaults';
 import {
-  applyFontSize, applyHighlight, applyTextColor, clearHighlight,
-  hasSelectionInside, queryInline, removeFormatting, selectionRole, selectionText,
-  toggleInline, type InlineCommand,
+  applyBar, applyBubble, applyFontFamily, applyFontSize, applyHighlight, applyTextColor,
+  barAtSelection, bubbleAtSelection, clearHighlight, hasSelectionInside, queryInline,
+  removeBubble, removeFormatting, selectionRole, selectionText, toggleInline,
+  type InlineCommand,
 } from '../lib/format';
+import { fontFamilyOf } from '../lib/fonts';
 import type { Role } from '../lib/parse';
 import { useStore } from '../store';
 
@@ -27,13 +29,13 @@ const ROLE_LABEL: Record<Role, string> = {
 
 const TEXT_SWATCHES = ['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8', '#8b5a2b', '#8a8a95'];
 
-type Panel = 'none' | 'color' | 'highlight' | 'size' | 'character';
+type Panel = 'none' | 'color' | 'highlight' | 'size' | 'character' | 'bubble' | 'font' | 'bar';
 /** 색을 '이 선택 영역만' 바꿀지, '같은 역할 전체'에 적용할지 */
 type ColorScope = 'role' | 'selection';
 
 export function SelectionPopup({
-  editorRoot, boundary,
-}: { editorRoot: HTMLElement | null; boundary: HTMLElement | null }) {
+  editorRoot, boundary, zoom,
+}: { editorRoot: HTMLElement | null; boundary: HTMLElement | null; zoom: number }) {
   const { settings, patch, upsertCharacter } = useStore();
   const [position, setPosition] = useState<Position | null>(null);
   const [active, setActive] = useState<Record<string, boolean>>({});
@@ -41,16 +43,28 @@ export function SelectionPopup({
   const [role, setRole] = useState<Role>('narration');
   const [scope, setScope] = useState<ColorScope>('role');
   const [picked, setPicked] = useState('');
+  const [sizeInput, setSizeInput] = useState('');
+  const [bubbleSpeaker, setBubbleSpeaker] = useState('');
+  const [inBubble, setInBubble] = useState(false);
+  const popupRef = useRef<HTMLDivElement | null>(null);
+  /**
+   * 팝업 안의 입력칸이나 드롭다운에 포커스가 가면 본문 선택이 풀린다.
+   * 마지막 선택을 들고 있다가 명령을 실행하기 직전에 되돌려 놓는다.
+   */
+  const lastRange = useRef<Range | null>(null);
 
   useEffect(() => {
     const update = () => {
       if (!editorRoot || !boundary) return;
       if (!hasSelectionInside(editorRoot)) {
+        // 팝업 자체를 조작하는 중이라면 닫지 않는다.
+        if (popupRef.current?.contains(document.activeElement)) return;
         setPosition(null);
         setPanel('none');
         return;
       }
       const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) lastRange.current = sel.getRangeAt(0).cloneRange();
       const rect = sel?.getRangeAt(0).getBoundingClientRect();
       if (!rect || (rect.width === 0 && rect.height === 0)) {
         setPosition(null);
@@ -60,6 +74,7 @@ export function SelectionPopup({
       // boundary 는 스크롤되는 영역이라, 스크롤량을 더해야 글자에 붙어 따라다닌다.
       const top = rect.top - host.top + boundary.scrollTop;
       const left = rect.left - host.left + boundary.scrollLeft + rect.width / 2;
+      void zoom; // 위치는 화면 좌표 기준이라 배율을 따로 곱하지 않는다
       // 위쪽 공간이 모자라면 글자 아래로 내린다.
       const below = rect.top - host.top < 120;
       setPosition({
@@ -70,6 +85,7 @@ export function SelectionPopup({
       setActive(Object.fromEntries(INLINE_BUTTONS.map((b) => [b.command, queryInline(b.command)])));
       setRole(selectionRole(editorRoot));
       setPicked(selectionText());
+      setInBubble(Boolean(bubbleAtSelection(editorRoot)));
     };
 
     document.addEventListener('selectionchange', update);
@@ -80,9 +96,20 @@ export function SelectionPopup({
       window.removeEventListener('scroll', update, true);
       window.removeEventListener('resize', update);
     };
-  }, [editorRoot, boundary]);
+  }, [editorRoot, boundary, zoom]);
 
   if (!position || !editorRoot) return null;
+
+  /** 팝업 입력칸을 거친 뒤에도 본문 선택을 되살려 명령이 먹히게 한다. */
+  const withSelection = (action: () => void) => {
+    const range = lastRange.current;
+    if (range) {
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }
+    action();
+  };
 
   const refreshActive = () =>
     setActive(Object.fromEntries(INLINE_BUTTONS.map((b) => [b.command, queryInline(b.command)])));
@@ -101,9 +128,32 @@ export function SelectionPopup({
 
   const baseSize = role === 'dialogue' ? settings.typography.dialogueFontSize : settings.typography.fontSize;
   const isCharacter = Boolean(settings.characters[picked]);
+  const fontChoices = [
+    ...FONT_OPTIONS,
+    ...settings.customFonts.map((font) => ({ label: `${font.label} (내 글꼴)`, value: fontFamilyOf(font) })),
+  ];
+  const characterNames = Object.keys(settings.characters);
+
+  const makeBubble = () => {
+    const character = settings.characters[bubbleSpeaker];
+    applyBubble(
+      bubbleSpeaker,
+      character
+        ? {
+            bubbleColor: character.bubbleColor || settings.messenger.bubbleColor,
+            textColor: character.bubbleTextColor || settings.messenger.bubbleTextColor,
+            nameColor: character.color,
+            avatar: character.avatar,
+            isMe: character.isMe,
+          }
+        : null,
+    );
+    setPanel('none');
+  };
 
   return (
     <div
+      ref={popupRef}
       className={`selection-popup${position.below ? ' is-below' : ''}`}
       style={{ top: position.top, left: position.left }}
       // 버튼을 누를 때 선택이 풀리지 않도록 mousedown 을 막는다.
@@ -146,6 +196,30 @@ export function SelectionPopup({
           onClick={() => setPanel((v) => (v === 'size' ? 'none' : 'size'))}
         >
           크기
+        </button>
+        <button
+          type="button"
+          title="글꼴"
+          className={`popup-btn ${panel === 'font' ? 'is-active' : ''}`}
+          onClick={() => setPanel((v) => (v === 'font' ? 'none' : 'font'))}
+        >
+          글꼴
+        </button>
+        <button
+          type="button"
+          title="왼쪽 세로선"
+          className={`popup-btn ${panel === 'bar' ? 'is-active' : ''}`}
+          onClick={() => setPanel((v) => (v === 'bar' ? 'none' : 'bar'))}
+        >
+          ▌
+        </button>
+        <button
+          type="button"
+          title="말풍선으로 만들기"
+          className={`popup-btn ${panel === 'bubble' ? 'is-active' : ''}`}
+          onClick={() => setPanel((v) => (v === 'bubble' ? 'none' : 'bubble'))}
+        >
+          말풍선
         </button>
         <button
           type="button"
@@ -234,6 +308,119 @@ export function SelectionPopup({
             onClick={() => applyFontSize(editorRoot, baseSize)}>
             기본 {baseSize}
           </button>
+          <span className="popup-inline-input">
+            <input
+              type="number"
+              min={8}
+              max={200}
+              placeholder="직접"
+              value={sizeInput}
+              onChange={(event) => setSizeInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter') return;
+                event.preventDefault();
+                const next = Number(sizeInput);
+                if (Number.isFinite(next) && next >= 8) withSelection(() => applyFontSize(editorRoot, next));
+              }}
+            />
+            <button
+              type="button"
+              className="popup-btn slim"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                const next = Number(sizeInput);
+                if (Number.isFinite(next) && next >= 8) withSelection(() => applyFontSize(editorRoot, next));
+              }}
+            >
+              적용
+            </button>
+          </span>
+        </div>
+      ) : null}
+
+      {panel === 'font' ? (
+        <div className="popup-sub popup-sub-column">
+          <div className="popup-row">
+            {fontChoices.map((font) => (
+              <button
+                key={font.value}
+                type="button"
+                className="popup-btn slim"
+                style={{ fontFamily: font.value }}
+                onClick={() => applyFontFamily(editorRoot, font.value)}
+              >
+                {font.label.replace(/\s*\(.*\)$/, '')}
+              </button>
+            ))}
+          </div>
+          <p className="popup-note">고른 글꼴이 드래그한 영역에만 적용됩니다.</p>
+        </div>
+      ) : null}
+
+      {panel === 'bar' ? (
+        <div className="popup-sub popup-sub-column">
+          <div className="popup-row">
+            {['#e0a340', '#3aa6a0', '#8b1e1e', '#1f4f8b', '#7a4fa8', '#5c6270'].map((color) => (
+              <button
+                key={color}
+                type="button"
+                className="swatch"
+                style={{ background: color }}
+                title={color}
+                onClick={() => applyBar(editorRoot, color)}
+              />
+            ))}
+            <input
+              type="color"
+              className="swatch-picker"
+              onChange={(event) => applyBar(editorRoot, event.target.value)}
+            />
+          </div>
+          <p className="popup-note">
+            {barAtSelection(editorRoot)
+              ? '이미 세로선이 있어 색만 바뀝니다.'
+              : '드래그한 글 왼쪽에 세로선을 붙입니다.'}
+          </p>
+        </div>
+      ) : null}
+
+      {panel === 'bubble' ? (
+        <div className="popup-sub popup-sub-column">
+          {inBubble ? (
+            <>
+              <p className="popup-note">이미 말풍선입니다.</p>
+              <button type="button" className="popup-btn slim"
+                onClick={() => { removeBubble(editorRoot); setPanel('none'); }}>
+                말풍선 풀기
+              </button>
+            </>
+          ) : (
+            <>
+              <select
+                className="popup-select"
+                value={bubbleSpeaker}
+                onChange={(event) => setBubbleSpeaker(event.target.value)}
+              >
+                <option value="">인물 없음 (말풍선만)</option>
+                {characterNames.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="popup-btn slim"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => withSelection(makeBubble)}
+              >
+                말풍선으로 만들기
+              </button>
+              <p className="popup-note">
+                {bubbleSpeaker
+                  ? '이름과 프로필이 함께 표시됩니다.'
+                  : '등록된 인물이 아니면 말풍선만 표시됩니다.'}
+              </p>
+            </>
+          )}
         </div>
       ) : null}
 

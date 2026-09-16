@@ -18,6 +18,7 @@ export function ThemePanel() {
             메신저 테마에서는 본문을 직접 고칠 수 없습니다. 내용을 수정하려면 기본 테마로 돌아가세요.
             말풍선 색과 프로필은 <strong>색상 / 캐릭터</strong> 패널에서 캐릭터별로 지정합니다.
           </Hint>
+          <Hint>캐릭터마다 다른 말풍선 색을 쓰려면 <strong>색상 / 캐릭터</strong> 패널에서 지정하세요.</Hint>
           <ColorField label="말풍선 색" value={messenger.bubbleColor}
             onChange={(bubbleColor) => patch('messenger', { bubbleColor })} />
           <ColorField label="말풍선 글자색" value={messenger.bubbleTextColor}

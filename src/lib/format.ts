@@ -112,6 +112,131 @@ export function applyFontSize(root: HTMLElement, px: number): void {
   syncInlineVars(root);
 }
 
+/** 선택 영역에만 글꼴을 적용한다. */
+export function applyFontFamily(root: HTMLElement, family: string): void {
+  setCssStyling(true);
+  document.execCommand('fontName', false, family);
+  // 일부 브라우저는 여전히 <font face> 를 만든다.
+  root.querySelectorAll<HTMLElement>('font[face]').forEach((fontEl) => {
+    const span = document.createElement('span');
+    span.style.fontFamily = fontEl.getAttribute('face') ?? family;
+    while (fontEl.firstChild) span.appendChild(fontEl.firstChild);
+    fontEl.parentNode?.replaceChild(span, fontEl);
+  });
+  syncInlineVars(root);
+}
+
+/** 커서 자리에 이미지를 넣는다. */
+export function insertImage(root: HTMLElement, url: string, widthPercent = 60): void {
+  const image = document.createElement('img');
+  image.src = url;
+  image.className = 'te-img';
+  image.style.width = `${widthPercent}%`;
+  image.dataset.teImg = 'true';
+
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0 && root.contains(sel.getRangeAt(0).startContainer)) {
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(image);
+    range.setStartAfter(image);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } else {
+    root.appendChild(image);
+  }
+}
+
+/** 선택 영역이 이미지 하나라면 그 이미지를 돌려준다. */
+export function selectionImage(root: HTMLElement | null): HTMLImageElement | null {
+  if (!root) return null;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  const range = sel.getRangeAt(0);
+
+  const container = range.commonAncestorContainer;
+  if (container.nodeType === Node.ELEMENT_NODE) {
+    const found = (container as HTMLElement).querySelectorAll?.('img[data-te-img]');
+    if (found && found.length === 1) return found[0] as HTMLImageElement;
+    if ((container as HTMLElement).tagName === 'IMG') return container as HTMLImageElement;
+  }
+  return null;
+}
+
+/**
+ * 드래그한 글을 말풍선으로 바꾼다.
+ * 등록된 캐릭터면 이름과 프로필을 함께 보여주고, 아니면 말풍선만 남긴다.
+ */
+export function applyBubble(
+  speaker: string,
+  look: { bubbleColor: string; textColor: string; nameColor: string; avatar: string; isMe: boolean } | null,
+): void {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+
+  const wrap = document.createElement('div');
+  wrap.className = `te-bubble${look ? '' : ' no-speaker'}${look?.isMe ? ' is-me' : ''}`;
+  if (speaker) wrap.dataset.teBubbleSpeaker = speaker;
+  if (look) {
+    if (look.bubbleColor) wrap.style.setProperty('--b-bg', look.bubbleColor);
+    if (look.textColor) wrap.style.setProperty('--b-fg', look.textColor);
+    if (look.nameColor) wrap.style.setProperty('--b-name', look.nameColor);
+    if (look.avatar) wrap.style.setProperty('--b-avatar', `url("${look.avatar}")`);
+  }
+
+  if (look && speaker) {
+    const name = document.createElement('span');
+    name.className = 'te-bubble-name';
+    name.contentEditable = 'false';
+    name.textContent = speaker;
+    wrap.appendChild(name);
+  }
+
+  const body = document.createElement('span');
+  body.className = 'te-bubble-text';
+  try {
+    body.appendChild(range.extractContents());
+  } catch {
+    return;
+  }
+  wrap.appendChild(body);
+  range.insertNode(wrap);
+
+  sel.removeAllRanges();
+  const next = document.createRange();
+  next.selectNodeContents(body);
+  sel.addRange(next);
+}
+
+export function bubbleAtSelection(root: HTMLElement | null): HTMLElement | null {
+  if (!root) return null;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  let node: Node | null = sel.getRangeAt(0).commonAncestorContainer;
+  while (node && node !== root) {
+    if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).classList.contains('te-bubble')) {
+      return node as HTMLElement;
+    }
+    node = node.parentNode;
+  }
+  return null;
+}
+
+export function removeBubble(root: HTMLElement): void {
+  const bubble = bubbleAtSelection(root);
+  if (!bubble) return;
+  const parent = bubble.parentNode;
+  if (!parent) return;
+  bubble.querySelector('.te-bubble-name')?.remove();
+  const body = bubble.querySelector('.te-bubble-text');
+  const line = document.createElement('div');
+  while (body?.firstChild) line.appendChild(body.firstChild);
+  parent.replaceChild(line, bubble);
+  root.normalize();
+}
+
 export function removeFormatting(root: HTMLElement): void {
   document.execCommand('removeFormat');
   root.querySelectorAll<HTMLElement>('span[style]').forEach((el) => {

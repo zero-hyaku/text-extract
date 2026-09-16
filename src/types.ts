@@ -117,9 +117,23 @@ export interface CharacterStyle {
   color: string;
   /** 이 캐릭터의 대사 색. 비어 있으면 공통 대사 색을 쓴다 */
   dialogueColor: string;
+  /** 말풍선 색. 비어 있으면 공통 말풍선 색을 쓴다 */
+  bubbleColor: string;
+  bubbleTextColor: string;
   /** data: URL 프로필 이미지. 비어 있으면 이름 색상의 원형으로 대체 */
   avatar: string;
   isMe: boolean;
+}
+
+/** 본문 위에 얹는 이미지. 위치·크기는 결과물 너비 대비 % 로 들고 있어 확대·축소에 흔들리지 않는다. */
+export interface Sticker {
+  id: string;
+  url: string;
+  x: number;
+  y: number;
+  width: number;
+  rotation: number;
+  opacity: number;
 }
 
 /** 사용자가 올린 글꼴. 실제 파일은 IndexedDB 에 두고 여기엔 목록만 남긴다. */
@@ -154,6 +168,9 @@ export interface Settings {
   messenger: Messenger;
   characters: Record<string, CharacterStyle>;
   customFonts: CustomFont[];
+  stickers: Sticker[];
+  /** 미리보기 확대 배율 (결과물 크기와는 무관) */
+  previewZoom: number;
   exportOptions: ExportOptions;
 }
 

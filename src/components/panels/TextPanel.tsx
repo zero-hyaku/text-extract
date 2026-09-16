@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../../defaults';
 import {
-  applyBar, applyFontSize, applyHighlight, applyTextColor, clearHighlight,
-  hasSelectionInside, insertPageBreak, pageBreakCount, removeBar, removeFormatting, toggleInline,
+  applyBar, applyFontFamily, applyFontSize, applyHighlight, applyTextColor, clearHighlight,
+  hasSelectionInside, insertImage, insertPageBreak, pageBreakCount, removeBar, removeFormatting,
+  selectionImage, toggleInline,
 } from '../../lib/format';
+import { readFileAsDataUrl } from '../../lib/exporters';
 import { deleteFontFile, fontFamilyOf, installFont, saveFontFile } from '../../lib/fonts';
 import { useStore } from '../../store';
 import { ButtonGroup, Field, FileButton, Hint, NumberSlider, Select } from '../ui';
 
 export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
-  const { settings, patch, set } = useStore();
+  const { settings, patch, set, setSelectedSticker } = useStore();
   const t = settings.typography;
   const [breaks, setBreaks] = useState(0);
   const [fontError, setFontError] = useState('');
@@ -123,7 +125,11 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
         label="글꼴"
         value={t.fontFamily}
         options={fontOptions}
-        onChange={(fontFamily) => patch('typography', { fontFamily })}
+        hint="드래그 중이면 선택 영역만"
+        onChange={(fontFamily) => {
+          if (hasSelectionInside(editorRoot) && editorRoot) applyFontFamily(editorRoot, fontFamily);
+          else patch('typography', { fontFamily });
+        }}
       />
       <Field label="내 글꼴 올리기" hint="ttf · otf · woff2">
         <div className="button-row">
@@ -235,6 +241,80 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
         ]}
         onChange={(wordBreak) => patch('typography', { wordBreak })}
       />
+      <hr className="divider" />
+
+      <Field label="이미지" hint="본문 속 · 본문 위">
+        <div className="button-row">
+          <FileButton
+            label="본문에 넣기"
+            accept="image/*"
+            onPick={async (file) => {
+              if (!editorRoot) return;
+              editorRoot.focus();
+              insertImage(editorRoot, await readFileAsDataUrl(file));
+            }}
+          />
+          <FileButton
+            label="스티커로 올리기"
+            accept="image/*"
+            onPick={async (file) => {
+              const url = await readFileAsDataUrl(file);
+              const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+              set('stickers', [
+                ...settings.stickers,
+                { id, url, x: 30, y: 30, width: 30, rotation: 0, opacity: 1 },
+              ]);
+              setSelectedSticker(id);
+            }}
+          />
+        </div>
+      </Field>
+
+      {selectionImage(editorRoot) ? (
+        <Field label="선택한 이미지 크기">
+          <div className="button-row">
+            {[25, 50, 75, 100].map((percent) => (
+              <button
+                key={percent}
+                type="button"
+                className="mini-button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  const image = selectionImage(editorRoot);
+                  if (image) image.style.width = `${percent}%`;
+                }}
+              >
+                {percent}%
+              </button>
+            ))}
+          </div>
+        </Field>
+      ) : null}
+
+      {settings.stickers.length > 0 ? (
+        <div className="slot-list">
+          {settings.stickers.map((sticker, index) => (
+            <div className="slot-row" key={sticker.id}>
+              <img className="slot-thumb" src={sticker.url} alt="" />
+              <span className="slot-name">스티커 {index + 1}</span>
+              <button type="button" className="mini-button" onClick={() => setSelectedSticker(sticker.id)}>
+                고르기
+              </button>
+              <button
+                type="button"
+                className="mini-button danger"
+                onClick={() => set('stickers', settings.stickers.filter((s) => s.id !== sticker.id))}
+              >
+                삭제
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {settings.stickers.length > 0 ? (
+        <Hint>스티커는 미리보기에서 바로 끌어 옮기고, 고른 뒤 오른쪽 아래 손잡이로 크기를 바꿉니다.</Hint>
+      ) : null}
+
       <hr className="divider" />
 
       <Field label="페이지 나눔" hint={breaks > 0 ? `${breaks}개 · ${breaks + 1}장으로 저장` : '저장할 때 분할'}>

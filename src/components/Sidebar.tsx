@@ -12,9 +12,15 @@ interface SidebarProps {
   editorRoot: HTMLElement | null;
   captureNode: HTMLElement | null;
   detectedNames: string[];
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
-export function Sidebar({ editorRoot, captureNode, detectedNames }: SidebarProps) {
+export function Sidebar({
+  editorRoot, captureNode, detectedNames, onUndo, onRedo, canUndo, canRedo,
+}: SidebarProps) {
   const { settings, set } = useStore();
 
   return (
@@ -31,27 +37,32 @@ export function Sidebar({ editorRoot, captureNode, detectedNames }: SidebarProps
             {settings.appTheme === 'dark' ? '☀' : '☾'}
           </button>
         </div>
-        <button
-          type="button"
-          className="side-switch"
-          title="사이드바 위치 바꾸기"
-          onClick={() => set('sidebarSide', settings.sidebarSide === 'left' ? 'right' : 'left')}
-        >
-          {settings.sidebarSide === 'left' ? '사이드바 → 오른쪽' : '사이드바 → 왼쪽'}
-        </button>
+        <div className="head-row">
+          <button
+            type="button"
+            className="side-switch"
+            title="사이드바 위치 바꾸기"
+            onClick={() => set('sidebarSide', settings.sidebarSide === 'left' ? 'right' : 'left')}
+          >
+            {settings.sidebarSide === 'left' ? '사이드바 → 오른쪽' : '사이드바 → 왼쪽'}
+          </button>
+          <button type="button" className="icon-button" title="되돌리기" disabled={!canUndo} onClick={onUndo}>↶</button>
+          <button type="button" className="icon-button" title="다시 실행" disabled={!canRedo} onClick={onRedo}>↷</button>
+        </div>
+
+        {/* 스크롤을 내려도 테마를 바꿀 수 있도록 고정 영역에 둔다 */}
+        <ButtonGroup
+          value={settings.theme}
+          options={[
+            { label: '기본', value: 'plain' as const },
+            { label: '메신저', value: 'messenger' as const },
+          ]}
+          onChange={(theme) => set('theme', theme)}
+        />
       </header>
 
       <div className="sidebar-scroll">
         <div className="sidebar-top">
-          <ButtonGroup
-            label="테마"
-            value={settings.theme}
-            options={[
-              { label: '기본', value: 'plain' as const },
-              { label: '메신저', value: 'messenger' as const },
-            ]}
-            onChange={(theme) => set('theme', theme)}
-          />
           <Toggle
             label="입력하는 동안 대사 자동 인식"
             checked={settings.autoParse}

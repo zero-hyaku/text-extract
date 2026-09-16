@@ -120,6 +120,8 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   characters: {},
   customFonts: [],
+  stickers: [],
+  previewZoom: 1,
   exportOptions: {
     format: 'png',
     scale: 2,

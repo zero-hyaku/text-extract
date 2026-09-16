@@ -15,7 +15,10 @@ export function ColorPanel({ detectedNames }: { detectedNames: string[] }) {
     setSettings((prev) => {
       const next = { ...prev.characters };
       for (const name of missing) {
-        next[name] = { name, color: prev.roles.name, dialogueColor: '', avatar: '', isMe: false };
+        next[name] = {
+          name, color: prev.roles.name, dialogueColor: '',
+          bubbleColor: '', bubbleTextColor: '', avatar: '', isMe: false,
+        };
       }
       return { ...prev, characters: next };
     });
@@ -122,6 +125,26 @@ export function ColorPanel({ detectedNames }: { detectedNames: string[] }) {
                       ? character.dialogueColor
                       : roles.dialogue}
                     onChange={(e) => upsertCharacter(character.name, { dialogueColor: e.target.value })}
+                  />
+                </label>
+                <label className="mini-color" title="이 캐릭터의 말풍선 색">
+                  <span>말풍선</span>
+                  <input
+                    type="color"
+                    value={/^#[0-9a-f]{6}$/i.test(character.bubbleColor)
+                      ? character.bubbleColor
+                      : settings.messenger.bubbleColor}
+                    onChange={(e) => upsertCharacter(character.name, { bubbleColor: e.target.value })}
+                  />
+                </label>
+                <label className="mini-color" title="이 캐릭터의 말풍선 글자색">
+                  <span>말풍선 글자</span>
+                  <input
+                    type="color"
+                    value={/^#[0-9a-f]{6}$/i.test(character.bubbleTextColor)
+                      ? character.bubbleTextColor
+                      : settings.messenger.bubbleTextColor}
+                    onChange={(e) => upsertCharacter(character.name, { bubbleTextColor: e.target.value })}
                   />
                 </label>
                 {character.dialogueColor ? (

@@ -100,7 +100,13 @@ body {
 .sidebar-head {
   padding: 16px 18px 12px;
   border-bottom: 1px solid var(--ui-line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
+.head-row { display: flex; align-items: center; gap: 6px; }
+.head-row .side-switch { flex: 1; width: auto; }
+.icon-button:disabled { opacity: 0.35; cursor: not-allowed; }
 .sidebar-title {
   display: flex;
   align-items: center;
@@ -130,6 +136,7 @@ body {
 .side-switch {
   width: 100%;
   padding: 7px 10px;
+  min-width: 0;
   font-size: 12px;
   color: var(--ui-dim);
   background: var(--ui-panel);
@@ -285,6 +292,111 @@ body {
   font-weight: inherit;
 }
 
+/* 확대·축소 — 결과물 크기는 그대로 두고 화면에서만 키운다 */
+.zoom-frame { flex: 0 0 auto; position: relative; }
+.zoom-inner { transform-origin: top left; width: max-content; }
+
+.zoom-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  background: var(--ui-panel);
+  border: 1px solid var(--ui-line);
+  border-radius: 9px;
+}
+.zoom-bar button {
+  min-width: 28px;
+  height: 26px;
+  padding: 0 9px;
+  font-size: 11.5px;
+  font-family: inherit;
+  color: var(--ui-text);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.zoom-bar button:hover { background: var(--ui-hover); }
+.zoom-bar button:disabled { opacity: 0.4; cursor: not-allowed; }
+.zoom-value {
+  min-width: 46px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--ui-dim);
+}
+.zoom-sep { width: 1px; height: 16px; background: var(--ui-line); }
+
+/* 본문 속 이미지 */
+.te-img { display: block; max-width: 100%; height: auto; margin: 6px 0; }
+
+/* 본문 위 스티커 */
+.sticker-layer { position: absolute; inset: 0; z-index: 12; pointer-events: none; }
+.sticker {
+  position: absolute;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  line-height: 0;
+}
+.sticker:active { cursor: grabbing; }
+.sticker img { width: 100%; height: auto; display: block; user-select: none; }
+.sticker-outline {
+  position: absolute;
+  inset: -2px;
+  border: 1.5px solid var(--ui-accent);
+  pointer-events: none;
+}
+.sticker-handle {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  background: var(--ui-accent);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+/* 본문 속 말풍선 */
+.te-bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  margin: 8px 0;
+  text-indent: 0;
+}
+.te-bubble.is-me { align-items: flex-end; }
+.te-bubble-name {
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--b-name, var(--te-name));
+}
+.te-bubble-text {
+  display: inline-block;
+  max-width: 80%;
+  padding: 9px 13px;
+  border-radius: 14px;
+  background: var(--b-bg, #ffffff);
+  color: var(--b-fg, #2b2b33);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+/* 프로필 사진이 있으면 이름 앞에 동그랗게 붙인다 */
+.te-bubble[style*='--b-avatar'] .te-bubble-name::before {
+  content: '';
+  display: inline-block;
+  width: 1.5em;
+  height: 1.5em;
+  margin-right: 5px;
+  vertical-align: -0.45em;
+  border-radius: 40%;
+  background: var(--b-avatar) center/cover no-repeat;
+}
+
 /* 선택 영역 좌측 세로선 */
 .te-bar {
   display: inline-block;
@@ -344,7 +456,8 @@ body {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 .msg-narration { margin: 4px 0; white-space: pre-wrap; }
-.msg-narration.is-muted { opacity: 0.66; font-style: italic; }
+.msg-narration.is-muted { opacity: 0.7; }
+.msg-emph { font-style: italic; }
 .msg-empty { color: rgba(120, 124, 135, 0.8); margin: 0; }
 
 /* ------------------------------------------------------------------ */
@@ -406,6 +519,27 @@ body {
 }
 .popup-note { margin: 0; font-size: 10.5px; line-height: 1.5; color: var(--ui-muted); max-width: 250px; }
 .popup-note strong { color: var(--ui-text); }
+.popup-select {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 11.5px;
+  font-family: inherit;
+  color: var(--ui-text);
+  background: var(--ui-popup-scope-bg);
+  border: 1px solid var(--ui-popup-divider);
+  border-radius: 6px;
+}
+.popup-inline-input { display: inline-flex; align-items: center; gap: 3px; }
+.popup-inline-input input {
+  width: 54px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--ui-text);
+  background: var(--ui-popup-scope-bg);
+  border: 1px solid var(--ui-popup-divider);
+  border-radius: 6px;
+}
 .popup-divider { width: 1px; height: 18px; background: var(--ui-popup-divider); margin: 0 2px; }
 
 .cmd-bold { font-weight: 800; }
@@ -766,6 +900,13 @@ textarea { resize: vertical; line-height: 1.5; }
   background: var(--ui-panel);
   border: 1px solid var(--ui-line);
   border-radius: 7px;
+}
+.slot-thumb {
+  width: 26px;
+  height: 26px;
+  object-fit: cover;
+  border-radius: 5px;
+  border: 1px solid var(--ui-line);
 }
 .slot-name { flex: 1; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

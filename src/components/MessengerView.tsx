@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { parseScript } from '../lib/parse';
+import { parseScript, splitEmphasis } from '../lib/parse';
 import type { Settings } from '../types';
 
 function initial(name: string): string {
@@ -26,7 +26,11 @@ export function MessengerView({ plainText, settings }: { plainText: string; sett
                 letterSpacing: `${typography.letterSpacing}px`,
               }}
             >
-              {block.text}
+              {splitEmphasis(block.text).map((part, partIndex) => (
+                part.emph
+                  ? <em key={partIndex} className="msg-emph">{part.text}</em>
+                  : <span key={partIndex}>{part.text}</span>
+              ))}
             </p>
           );
         }
@@ -61,8 +65,10 @@ export function MessengerView({ plainText, settings }: { plainText: string; sett
                 className="msg-bubble"
                 style={{
                   borderRadius: `${messenger.bubbleRadius}px`,
-                  background: isMe ? messenger.myBubbleColor : messenger.bubbleColor,
-                  color: isMe ? messenger.myBubbleTextColor : messenger.bubbleTextColor,
+                  background: character?.bubbleColor
+                    || (isMe ? messenger.myBubbleColor : messenger.bubbleColor),
+                  color: character?.bubbleTextColor
+                    || (isMe ? messenger.myBubbleTextColor : messenger.bubbleTextColor),
                   fontSize: `${typography.fontSize}px`,
                   lineHeight: typography.lineHeight,
                   letterSpacing: `${typography.letterSpacing}px`,

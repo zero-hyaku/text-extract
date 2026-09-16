@@ -67,6 +67,9 @@ interface StoreValue {
   /** 배경 이미지 위치를 드래그로 조절하는 중인지 (저장하지 않음) */
   adjustingImage: boolean;
   setAdjustingImage: (value: boolean) => void;
+  /** 지금 고른 스티커 id (저장하지 않음) */
+  selectedSticker: string | null;
+  setSelectedSticker: (id: string | null) => void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -74,6 +77,7 @@ const StoreContext = createContext<StoreValue | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [settings, setSettingsState] = useState<Settings>(readStoredSettings);
   const [adjustingImage, setAdjustingImage] = useState(false);
+  const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
   const initialContent = useRef(readStoredContent()).current;
 
   useEffect(() => {
@@ -111,7 +115,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const upsertCharacter = useCallback((name: string, value: Partial<CharacterStyle>) => {
     setSettingsState((prev) => {
       const existing = prev.characters[name] ?? {
-        name, color: prev.roles.name, dialogueColor: '', avatar: '', isMe: false,
+        name, color: prev.roles.name, dialogueColor: '',
+        bubbleColor: '', bubbleTextColor: '', avatar: '', isMe: false,
       };
       return {
         ...prev,
@@ -132,9 +137,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () => ({
       settings, setSettings, patch, set, replaceSettings, resetSettings,
       upsertCharacter, initialContent, saveContent, adjustingImage, setAdjustingImage,
+      selectedSticker, setSelectedSticker,
     }),
     [settings, setSettings, patch, set, replaceSettings, resetSettings,
-     upsertCharacter, initialContent, saveContent, adjustingImage],
+     upsertCharacter, initialContent, saveContent, adjustingImage, selectedSticker],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -3,6 +3,35 @@ import { collapseBlankLines, markupRoles } from '../lib/parse';
 import { restoreCaret, saveCaret } from '../lib/caret';
 import { insertPlainText } from '../lib/format';
 
+/**
+ * 본문을 줄 단위 평문으로 읽는다.
+ *
+ * innerText 를 쓰면 화면에서 감춘 강조 기호(*)까지 빠져 버려,
+ * 메신저 테마가 어디가 강조인지 알 수 없게 된다. 그래서 직접 훑는다.
+ */
+export function readPlainText(root: HTMLElement): string {
+  const lines: string[] = [];
+  let current = '';
+  const flush = () => { lines.push(current); current = ''; };
+
+  for (const node of Array.from(root.childNodes)) {
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      current += node.textContent ?? '';
+      continue;
+    }
+    const el = node as HTMLElement;
+    if (el.tagName === 'BR') { flush(); continue; }
+    if (el.tagName === 'DIV' || el.tagName === 'P' || el.tagName === 'LI') {
+      if (current) flush();
+      lines.push(el.textContent ?? '');
+      continue;
+    }
+    current += el.textContent ?? '';
+  }
+  if (current) flush();
+  return lines.join('\n');
+}
+
 export function plainToHtml(text: string): string {
   const escape = (value: string) =>
     value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -46,7 +75,7 @@ export function Editor({
   const publish = useCallback(() => {
     const root = rootRef.current;
     if (!root) return;
-    onTextChange(root.innerText);
+    onTextChange(readPlainText(root));
     onHtmlChange(root.innerHTML);
   }, [onTextChange, onHtmlChange]);
 
