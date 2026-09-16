@@ -109,7 +109,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setSettingsState(mergeSettings(DEFAULT_SETTINGS, next));
   }, []);
 
-  const resetSettings = useCallback(() => setSettingsState(DEFAULT_SETTINGS), []);
+  /*
+   * 서식만 되돌린다. 다크/라이트 같은 화면 설정은 서식이 아니라 작업 환경이라,
+   * 초기화했다고 모드가 바뀌면 당황스럽다.
+   */
+  const resetSettings = useCallback(() => {
+    setSettingsState((prev) => ({
+      ...DEFAULT_SETTINGS,
+      appTheme: prev.appTheme,
+      sidebarSide: prev.sidebarSide,
+      sidebarWidth: prev.sidebarWidth,
+      activePanel: prev.activePanel,
+      previewZoom: prev.previewZoom,
+    }));
+  }, []);
 
   const upsertCharacter = useCallback((name: string, value: Partial<CharacterStyle>) => {
     setSettingsState((prev) => {

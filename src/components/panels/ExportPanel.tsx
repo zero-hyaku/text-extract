@@ -3,13 +3,13 @@ import { copyNodeToClipboard, exportNode } from '../../lib/exporters';
 import { deleteSlot, downloadPreset, loadSlots, readPresetFile, saveSlot, type PresetSlot } from '../../lib/presets';
 import { stripAllFormatting } from '../../lib/format';
 import { useStore } from '../../store';
-import { ButtonGroup, Field, Hint, NumberSlider, Select, TextInput } from '../ui';
+import { ButtonGroup, Field, Hint, NumberSlider, Select, TextInput, Toggle } from '../ui';
 import type { ExportOptions } from '../../types';
 
 export function ExportPanel({
   captureNode, editorRoot,
 }: { captureNode: HTMLElement | null; editorRoot: HTMLElement | null }) {
-  const { settings, patch, replaceSettings, resetSettings } = useStore();
+  const { settings, patch, set, replaceSettings, resetSettings } = useStore();
   const options = settings.exportOptions;
 
   const [busy, setBusy] = useState(false);
@@ -160,6 +160,38 @@ export function ExportPanel({
               }
             }}
           />
+        </div>
+      </Field>
+
+      <hr className="divider" />
+
+      <div className="panel-head"><span>편집 설정</span></div>
+      <Toggle
+        label="입력하는 동안 대사 자동 인식"
+        checked={settings.autoParse}
+        onChange={(autoParse) => set('autoParse', autoParse)}
+      />
+      <Toggle
+        label="결과물에서 * 기호 감추기"
+        checked={settings.hideEmphasisMarks}
+        onChange={(hideEmphasisMarks) => set('hideEmphasisMarks', hideEmphasisMarks)}
+        hint="강조 서식은 그대로 두고 별표만 숨깁니다"
+      />
+      <Toggle
+        label="붙여넣을 때 빈 줄 정리"
+        checked={settings.tidyBlankLines}
+        onChange={(tidyBlankLines) => set('tidyBlankLines', tidyBlankLines)}
+        hint="문단 사이는 '문단 간격' 값으로 띄웁니다"
+      />
+      <Field label="도구 위치">
+        <div className="button-row">
+          <button
+            type="button"
+            className="mini-button"
+            onClick={() => set('sidebarSide', settings.sidebarSide === 'left' ? 'right' : 'left')}
+          >
+            도구를 {settings.sidebarSide === 'left' ? '오른쪽' : '왼쪽'}으로 옮기기
+          </button>
         </div>
       </Field>
 

@@ -1083,33 +1083,61 @@ textarea { resize: vertical; line-height: 1.5; }
   gap: 2px;
 }
 
-/* 캐릭터 목록 */
+/* 캐릭터 목록 — 색상은 두 개씩 나란히 둬 눈이 편하게 */
 .character-list { display: flex; flex-direction: column; gap: 10px; }
 .character-row {
   display: flex;
-  gap: 9px;
-  padding: 9px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 11px;
   background: var(--ui-panel);
   border: 1px solid var(--ui-line);
   border-radius: 9px;
 }
+.character-top { display: flex; align-items: center; gap: 9px; }
 .character-avatar {
-  flex: 0 0 34px;
-  height: 34px;
+  flex: 0 0 32px;
+  height: 32px;
   border-radius: 40%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #fff;
   overflow: hidden;
 }
-.character-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.character-name { font-size: 12.5px; font-weight: 600; }
-.character-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
-.character-controls input[type='color'] {
-  width: 30px;
+.character-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.character-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px 10px;
+}
+.char-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--ui-dim);
+}
+.char-field > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.char-field input[type='color'] {
+  flex: 0 0 34px;
   height: 26px;
   padding: 0;
   border: 1px solid var(--ui-line);
@@ -1117,6 +1145,10 @@ textarea { resize: vertical; line-height: 1.5; }
   background: transparent;
   cursor: pointer;
 }
+.char-action { justify-content: stretch; }
+.char-action > * { flex: 1; justify-content: center; text-align: center; }
+
+.character-reset { display: flex; flex-wrap: wrap; gap: 5px; }
 
 .slot-list { display: flex; flex-direction: column; gap: 6px; }
 .slot-row {
