@@ -6,8 +6,6 @@
  *  - 줄 머리의 `이름:` 은 캐릭터 이름으로 본다.
  */
 
-export const ROLE_CLASSES = ['te-dialogue', 'te-narration', 'te-emph', 'te-name', 'te-mark'] as const;
-
 const OPEN_QUOTES: Record<string, string> = {
   '"': '"',
   '“': '”', // “ ”
@@ -383,22 +381,6 @@ export function parseScript(plainText: string): Block[] {
 
   flush();
   return blocks;
-}
-
-/** 서술 한 줄을 일반 글과 *강조* 조각으로 나눈다. */
-export function splitEmphasis(text: string): Array<{ text: string; emph: boolean }> {
-  const parts: Array<{ text: string; emph: boolean }> = [];
-  const pattern = /\*\*([\s\S]+?)\*\*|\*([\s\S]+?)\*/g;
-  let last = 0;
-  let match = pattern.exec(text);
-  while (match) {
-    if (match.index > last) parts.push({ text: text.slice(last, match.index), emph: false });
-    parts.push({ text: match[1] ?? match[2] ?? '', emph: true });
-    last = match.index + match[0].length;
-    match = pattern.exec(text);
-  }
-  if (last < text.length) parts.push({ text: text.slice(last), emph: false });
-  return parts.length > 0 ? parts : [{ text, emph: false }];
 }
 
 /** 본문에 등장하는 캐릭터 이름 목록 */

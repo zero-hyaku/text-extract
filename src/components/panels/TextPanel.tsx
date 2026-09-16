@@ -50,21 +50,24 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
           <button type="button" className="cmd-italic" title="이탤릭" onClick={guard(() => toggleInline('italic'))}>I</button>
           <button type="button" className="cmd-underline" title="밑줄" onClick={guard(() => toggleInline('underline'))}>U</button>
           <button type="button" className="cmd-strikeThrough" title="취소선" onClick={guard(() => toggleInline('strikeThrough'))}>S</button>
-          <button
-            type="button"
-            className="cmd-bar"
-            title="왼쪽에 세로선 넣기"
-            onClick={guard((root) => applyBar(root, settings.roles.barColor))}
-          >
-            ▌
-          </button>
-          <button type="button" title="세로선 빼기" onClick={guard(removeBar)}>▌빼기</button>
           <button type="button" title="서식 지우기" onClick={guard(removeFormatting)}>지우기</button>
         </div>
       </Field>
 
-      <Field label="세로선 색" hint="드래그하지 않으면 커서가 있는 줄에 적용">
+      <Field label="왼쪽 세로선" hint="드래그하지 않으면 커서가 있는 줄">
         <div className="color-row" onMouseDown={(e) => e.preventDefault()}>
+          <button
+            type="button"
+            className="bar-button"
+            title="왼쪽에 세로선 넣기"
+            onClick={guard((root) => applyBar(root, settings.roles.barColor))}
+          >
+            ▌넣기
+          </button>
+          <button type="button" className="bar-button" title="세로선 빼기"
+            onClick={guard(removeBar)}>
+            빼기
+          </button>
           <input
             type="color"
             value={/^#[0-9a-f]{6}$/i.test(settings.roles.barColor) ? settings.roles.barColor : '#e0a340'}

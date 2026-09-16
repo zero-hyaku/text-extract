@@ -163,6 +163,26 @@ body {
   gap: 10px;
 }
 
+.app.boot { align-items: center; justify-content: center; background: var(--stage-bg); }
+.boot-text { margin: 0; font-size: 13px; color: var(--ui-dim); }
+
+/* 저장이 막혔을 때의 경고 — 조용히 실패하면 작업이 통째로 사라진다 */
+.save-warning {
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  transform: translateX(-50%);
+  z-index: 40;
+  max-width: 420px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fff;
+  background: var(--ui-danger);
+  border-radius: 9px;
+  box-shadow: 0 6px 20px var(--ui-popup-shadow);
+}
+
 .sidebar-resizer {
   flex: 0 0 6px;
   cursor: col-resize;
@@ -248,6 +268,26 @@ body {
   color: var(--ui-placeholder);
   pointer-events: none;
 }
+.start-tips {
+  margin: 4px 0 0;
+  padding: 14px 20px;
+  list-style: none;
+  max-width: 520px;
+  font-size: 12.5px;
+  line-height: 2.1;
+  color: var(--ui-dim);
+  background: var(--ui-panel);
+  border: 1px solid var(--ui-line);
+  border-radius: 10px;
+}
+.start-tips li::before { content: '· '; opacity: 0.6; }
+.start-tips code {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--ui-code-bg);
+  color: var(--ui-text);
+  font-size: 12px;
+}
 
 /*
  * 역할별 서식 — CSS 변수라 다시 파싱하지 않아도 즉시 반영된다.
@@ -326,6 +366,7 @@ body {
 }
 .zoom-bar button {
   min-width: 28px;
+  white-space: nowrap;
   height: 26px;
   padding: 0 9px;
   font-size: 11.5px;
@@ -897,7 +938,20 @@ textarea { resize: vertical; line-height: 1.5; }
   background: transparent;
   cursor: pointer;
 }
-.cmd-bar { font-size: 15px; }
+.bar-button {
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  font-family: inherit;
+  color: var(--ui-text);
+  background: var(--ui-panel);
+  border: 1px solid var(--ui-line);
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bar-button:hover { border-color: var(--ui-accent); }
 .rule-color {
   width: 34px;
   height: 30px;
@@ -1015,7 +1069,27 @@ textarea { resize: vertical; line-height: 1.5; }
     max-height: 48vh;
     border-bottom: 1px solid var(--ui-line);
   }
-  .sidebar-resizer { display: none; }
+  .app.boot { align-items: center; justify-content: center; background: var(--stage-bg); }
+.boot-text { margin: 0; font-size: 13px; color: var(--ui-dim); }
+
+/* 저장이 막혔을 때의 경고 — 조용히 실패하면 작업이 통째로 사라진다 */
+.save-warning {
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  transform: translateX(-50%);
+  z-index: 40;
+  max-width: 420px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fff;
+  background: var(--ui-danger);
+  border-radius: 9px;
+  box-shadow: 0 6px 20px var(--ui-popup-shadow);
+}
+
+.sidebar-resizer { display: none; }
   .stage-inner { padding: 20px 14px 40px; }
   .te-capture { max-width: 100%; }
 }

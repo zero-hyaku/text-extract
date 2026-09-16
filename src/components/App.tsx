@@ -14,7 +14,9 @@ const MAX_SIDEBAR = 640;
 const ZOOM_STEPS = [0.25, 0.4, 0.5, 0.65, 0.8, 1, 1.25, 1.5, 2, 3];
 
 export function App() {
-  const { settings, set, setSettings, initialContent, saveContent, setSelectedSticker } = useStore();
+  const {
+    settings, set, setSettings, initialContent, saveContent, setSelectedSticker, saveError,
+  } = useStore();
   const [editorRoot, setEditorRoot] = useState<HTMLDivElement | null>(null);
   const [captureNode, setCaptureNode] = useState<HTMLDivElement | null>(null);
   const [stageNode, setStageNode] = useState<HTMLElement | null>(null);
@@ -120,17 +122,38 @@ export function App() {
   /* 미리보기 확대·축소 */
   const zoom = settings.previewZoom;
   const stepZoom = (direction: 1 | -1) => {
+    userSetZoom.current = true;
     const index = ZOOM_STEPS.findIndex((value) => Math.abs(value - zoom) < 0.001);
     const base = index >= 0 ? index : ZOOM_STEPS.indexOf(1);
     const next = ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, base + direction))];
     set('previewZoom', next);
   };
   /** 작업 영역 폭에 맞춰 배율을 정한다 */
-  const zoomToFit = () => {
+  const zoomToFit = useCallback(() => {
     if (!stageNode) return;
     const available = stageNode.clientWidth - 64;
     set('previewZoom', Math.min(1, Math.max(0.1, available / settings.layout.width)));
-  };
+  }, [stageNode, set, settings.layout.width]);
+
+  /*
+   * 좁은 화면에서는 결과물이 화면을 넘어가 왼쪽이 잘려 보인다.
+   * 사용자가 배율을 직접 건드리기 전까지는, 화면이 좁아지면 알아서 맞춘다.
+   */
+  const userSetZoom = useRef(false);
+  useEffect(() => {
+    if (!stageNode) return undefined;
+    const fitIfNeeded = () => {
+      if (userSetZoom.current) return;
+      const available = stageNode.clientWidth - 64;
+      if (available <= 0) return;
+      const needed = Math.min(1, Math.max(0.1, available / settings.layout.width));
+      if (Math.abs(needed - settings.previewZoom) > 0.01) set('previewZoom', needed);
+    };
+    fitIfNeeded();
+    const observer = new ResizeObserver(fitIfNeeded);
+    observer.observe(stageNode);
+    return () => observer.disconnect();
+  }, [stageNode, settings.layout.width, settings.previewZoom, set]);
 
   const isMessenger = settings.theme === 'messenger';
   const isEmpty = plainText.trim().length === 0;
@@ -207,6 +230,15 @@ export function App() {
                 ? '메신저 테마 — 대사만 말풍선 모양으로 보이며, 편집과 서식은 그대로 씁니다.'
                 : '미리보기 영역에 직접 입력·붙여넣기 하고, 텍스트를 드래그하면 편집 팝업이 열립니다.'}
             </p>
+
+            {/* 처음 열었을 때만 보이는 사용법 — 결과물에는 들어가지 않는다 */}
+            {isEmpty ? (
+              <ul className="start-tips" data-export-ignore="true">
+                <li><code>이름: "대사"</code> 로 쓰면 이름과 대사를 알아서 구분합니다</li>
+                <li><code>*강조*</code> 는 강조 서술이 되고, 별표는 결과물에서 감춰집니다</li>
+                <li>글자를 드래그하면 색·크기·말풍선을 바꾸는 창이 열립니다</li>
+              </ul>
+            ) : null}
           </div>
         </div>
 
@@ -215,11 +247,24 @@ export function App() {
           <span className="zoom-value">{Math.round(zoom * 100)}%</span>
           <button type="button" onClick={() => stepZoom(1)} title="확대" disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}>+</button>
           <span className="zoom-sep" />
-          <button type="button" onClick={() => set('previewZoom', 1)}>100%</button>
-          <button type="button" onClick={zoomToFit}>화면 맞춤</button>
+          <button
+            type="button"
+            onClick={() => { userSetZoom.current = true; set('previewZoom', 1); }}
+          >
+            100%
+          </button>
+          <button type="button" onClick={() => { userSetZoom.current = false; zoomToFit(); }}>
+            화면 맞춤
+          </button>
         </div>
 
         <SelectionPopup editorRoot={editorRoot} boundary={stageNode} zoom={zoom} />
+
+        {saveError ? (
+          <div className="save-warning" role="alert">
+            {saveError}
+          </div>
+        ) : null}
       </main>
     </div>
   );

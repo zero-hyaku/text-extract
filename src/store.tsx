@@ -3,10 +3,8 @@ import {
   type ReactNode,
 } from 'react';
 import { DEFAULT_SETTINGS, SAMPLE_CONTENT } from './defaults';
+import { CONTENT_KEY, SETTINGS_KEY, loadState, saveState } from './lib/storage';
 import type { CharacterStyle, Settings } from './types';
-
-const SETTINGS_KEY = 'text-extract:settings:v1';
-const CONTENT_KEY = 'text-extract:content:v1';
 
 type Plain = Record<string, unknown>;
 const isPlainObject = (v: unknown): v is Plain =>
@@ -34,24 +32,6 @@ export function mergeSettings(base: Settings, incoming: unknown): Settings {
   return result;
 }
 
-function readStoredSettings(): Settings {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    return mergeSettings(DEFAULT_SETTINGS, JSON.parse(raw));
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
-
-function readStoredContent(): string {
-  try {
-    return localStorage.getItem(CONTENT_KEY) ?? SAMPLE_CONTENT;
-  } catch {
-    return SAMPLE_CONTENT;
-  }
-}
-
 interface StoreValue {
   settings: Settings;
   setSettings: (updater: (prev: Settings) => Settings) => void;
@@ -64,6 +44,10 @@ interface StoreValue {
   /** 에디터 초기 내용 (마운트 시 1회 주입) */
   initialContent: string;
   saveContent: (html: string) => void;
+  /** 보관소에서 다 읽어 왔는지 */
+  ready: boolean;
+  /** 저장이 막혔을 때 사용자에게 알릴 문구 */
+  saveError: string;
   /** 배경 이미지 위치를 드래그로 조절하는 중인지 (저장하지 않음) */
   adjustingImage: boolean;
   setAdjustingImage: (value: boolean) => void;
@@ -75,21 +59,36 @@ interface StoreValue {
 const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettingsState] = useState<Settings>(readStoredSettings);
+  const [settings, setSettingsState] = useState<Settings>(DEFAULT_SETTINGS);
   const [adjustingImage, setAdjustingImage] = useState(false);
   const [selectedSticker, setSelectedSticker] = useState<string | null>(null);
-  const initialContent = useRef(readStoredContent()).current;
+  const [ready, setReady] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const initialContent = useRef(SAMPLE_CONTENT);
+
+  // 보관소에서 읽어 온 뒤에야 화면을 그린다 — 에디터는 마운트할 때 내용을 한 번만 받기 때문.
+  useEffect(() => {
+    let alive = true;
+    loadState()
+      .then(({ settings: stored, content }) => {
+        if (!alive) return;
+        if (stored) setSettingsState(mergeSettings(DEFAULT_SETTINGS, stored));
+        if (content !== null) initialContent.current = content;
+      })
+      .catch(() => { /* 못 읽으면 기본값으로 시작한다 */ })
+      .finally(() => { if (alive) setReady(true); });
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
+    if (!ready) return undefined;
     const id = window.setTimeout(() => {
-      try {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-      } catch {
-        /* 저장 공간이 없거나 차단된 환경 — 미리보기는 그대로 동작한다 */
-      }
+      saveState(SETTINGS_KEY, settings)
+        .then(() => setSaveError(''))
+        .catch(() => setSaveError('설정을 저장하지 못했습니다. 브라우저 저장 공간이 부족하거나 차단돼 있을 수 있습니다.'));
     }, 250);
     return () => window.clearTimeout(id);
-  }, [settings]);
+  }, [settings, ready]);
 
   const setSettings = useCallback((updater: (prev: Settings) => Settings) => {
     setSettingsState(updater);
@@ -126,22 +125,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const saveContent = useCallback((html: string) => {
-    try {
-      localStorage.setItem(CONTENT_KEY, html);
-    } catch {
-      /* 무시 */
-    }
+    saveState(CONTENT_KEY, html)
+      .then(() => setSaveError(''))
+      .catch(() => setSaveError('본문을 저장하지 못했습니다. 브라우저 저장 공간이 부족할 수 있습니다.'));
   }, []);
 
   const value = useMemo<StoreValue>(
     () => ({
       settings, setSettings, patch, set, replaceSettings, resetSettings,
-      upsertCharacter, initialContent, saveContent, adjustingImage, setAdjustingImage,
-      selectedSticker, setSelectedSticker,
+      upsertCharacter, initialContent: initialContent.current, saveContent,
+      adjustingImage, setAdjustingImage, selectedSticker, setSelectedSticker,
+      ready, saveError,
     }),
     [settings, setSettings, patch, set, replaceSettings, resetSettings,
-     upsertCharacter, initialContent, saveContent, adjustingImage, selectedSticker],
+     upsertCharacter, saveContent, adjustingImage, selectedSticker, ready, saveError],
   );
+
+  /*
+   * 다 읽기 전에는 화면을 만들지 않는다.
+   * 에디터는 마운트할 때 내용을 한 번만 받으므로, 여기서 먼저 그려 버리면
+   * 빈 본문을 붙잡은 채로 시작해 저장된 글을 덮어쓴다.
+   */
+  if (!ready) {
+    return (
+      <div className="app boot" data-app-theme={settings.appTheme}>
+        <p className="boot-text">불러오는 중…</p>
+      </div>
+    );
+  }
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

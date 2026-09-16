@@ -30,10 +30,6 @@ export function Field({
   );
 }
 
-export function Row({ children }: { children: ReactNode }) {
-  return <div className="row">{children}</div>;
-}
-
 /** 슬라이더 + 숫자 입력을 항상 함께 제공한다 (README: 모든 여백 수정에 둘 다 포함) */
 export function NumberSlider({
   label, value, onChange, min, max, step = 1, unit = 'px', hint,
