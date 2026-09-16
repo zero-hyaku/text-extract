@@ -1,0 +1,178 @@
+import { useState } from 'react';
+import { copyNodeToClipboard, exportNode } from '../../lib/exporters';
+import { deleteSlot, downloadPreset, loadSlots, readPresetFile, saveSlot, type PresetSlot } from '../../lib/presets';
+import { useStore } from '../../store';
+import { ButtonGroup, Field, Hint, NumberSlider, Select, TextInput } from '../ui';
+import type { ExportOptions } from '../../types';
+
+export function ExportPanel({ captureNode }: { captureNode: HTMLElement | null }) {
+  const { settings, patch, replaceSettings, resetSettings } = useStore();
+  const options = settings.exportOptions;
+
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [slots, setSlots] = useState<PresetSlot[]>(() => loadSlots());
+  const [slotName, setSlotName] = useState('');
+
+  const announce = (message: string) => {
+    setStatus(message);
+    window.setTimeout(() => setStatus(''), 2600);
+  };
+
+  const runExport = async () => {
+    if (!captureNode) return;
+    setBusy(true);
+    setStatus('저장하는 중…');
+    try {
+      await exportNode(captureNode, options);
+      announce('저장했습니다.');
+    } catch (error) {
+      announce(error instanceof Error ? `저장 실패: ${error.message}` : '저장에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runCopy = async () => {
+    if (!captureNode) return;
+    setBusy(true);
+    try {
+      const ok = await copyNodeToClipboard(captureNode, options.scale);
+      announce(ok ? '클립보드에 복사했습니다.' : '이 브라우저는 이미지 복사를 지원하지 않습니다.');
+    } catch {
+      announce('복사에 실패했습니다.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <ButtonGroup
+        label="저장 형식"
+        value={options.format}
+        options={[
+          { label: 'PNG', value: 'png' as ExportOptions['format'] },
+          { label: 'JPG', value: 'jpeg' as ExportOptions['format'] },
+          { label: 'PDF', value: 'pdf' as ExportOptions['format'] },
+        ]}
+        onChange={(format) => patch('exportOptions', { format })}
+      />
+      <Select
+        label="해상도"
+        value={options.scale}
+        options={[
+          { label: '1배 (화면 크기)', value: 1 },
+          { label: '2배 (권장)', value: 2 },
+          { label: '3배 (고화질)', value: 3 },
+          { label: '4배', value: 4 },
+        ]}
+        onChange={(scale) => patch('exportOptions', { scale })}
+      />
+      {options.format === 'jpeg' ? (
+        <NumberSlider label="JPG 품질" value={options.quality} min={0.4} max={1} step={0.01} unit=""
+          onChange={(quality) => patch('exportOptions', { quality })} />
+      ) : null}
+      <TextInput label="파일 이름" value={options.fileName} placeholder="발췌"
+        onChange={(fileName) => patch('exportOptions', { fileName })} />
+
+      <div className="button-row">
+        <button type="button" className="primary-button" disabled={busy || !captureNode} onClick={runExport}>
+          {busy ? '처리 중…' : '이미지로 저장'}
+        </button>
+        <button type="button" className="mini-button" disabled={busy || !captureNode} onClick={runCopy}>
+          클립보드 복사
+        </button>
+      </div>
+      {status ? <p className="status-line" role="status">{status}</p> : null}
+
+      <hr className="divider" />
+
+      <div className="panel-head"><span>서식 저장</span></div>
+      <Hint>편집 옵션과 본문은 이 브라우저에 자동 저장되어, 새로고침하거나 다시 방문해도 그대로 남습니다.</Hint>
+
+      <Field label="이 브라우저에 이름 붙여 저장">
+        <div className="button-row">
+          <input
+            type="text"
+            value={slotName}
+            placeholder="서식 이름"
+            onChange={(e) => setSlotName(e.target.value)}
+          />
+          <button
+            type="button"
+            className="mini-button"
+            disabled={!slotName.trim()}
+            onClick={() => {
+              setSlots(saveSlot(slotName, settings));
+              setSlotName('');
+              announce('서식을 저장했습니다.');
+            }}
+          >
+            저장
+          </button>
+        </div>
+      </Field>
+
+      {slots.length > 0 ? (
+        <div className="slot-list">
+          {slots.map((slot) => (
+            <div className="slot-row" key={slot.name}>
+              <span className="slot-name">{slot.name}</span>
+              <button type="button" className="mini-button"
+                onClick={() => { replaceSettings(slot.settings); announce(`'${slot.name}' 서식을 적용했습니다.`); }}>
+                적용
+              </button>
+              <button type="button" className="mini-button danger"
+                onClick={() => setSlots(deleteSlot(slot.name))}>
+                삭제
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <Field label="서식 파일" hint="다른 사람과 공유할 때">
+        <div className="button-row">
+          <button type="button" className="mini-button"
+            onClick={() => downloadPreset(slotName || options.fileName, settings)}>
+            파일로 내보내기
+          </button>
+          <label className="file-button" htmlFor="preset-import">파일 불러오기</label>
+          <input
+            id="preset-import"
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (!file) return;
+              try {
+                const preset = await readPresetFile(file);
+                replaceSettings(preset.settings);
+                announce(`'${preset.name}' 서식을 불러왔습니다.`);
+              } catch (error) {
+                announce(error instanceof Error ? error.message : '서식 파일을 읽지 못했습니다.');
+              }
+            }}
+          />
+        </div>
+      </Field>
+
+      <hr className="divider" />
+      <button
+        type="button"
+        className="mini-button danger"
+        onClick={() => {
+          if (window.confirm('모든 편집 옵션을 기본값으로 되돌릴까요? 본문은 그대로 남습니다.')) {
+            resetSettings();
+            announce('기본값으로 되돌렸습니다.');
+          }
+        }}
+      >
+        편집 옵션 초기화
+      </button>
+    </>
+  );
+}

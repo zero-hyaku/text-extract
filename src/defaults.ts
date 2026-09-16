@@ -1,0 +1,126 @@
+import type { Settings } from './types';
+
+export const FONT_OPTIONS = [
+  { label: '본고딕 (Noto Sans KR)', value: "'Noto Sans KR', sans-serif" },
+  { label: '본명조 (Noto Serif KR)', value: "'Noto Serif KR', serif" },
+  { label: '나눔고딕', value: "'Nanum Gothic', sans-serif" },
+  { label: '나눔명조', value: "'Nanum Myeongjo', serif" },
+  { label: '고운돋움', value: "'Gowun Dodum', sans-serif" },
+  { label: '고운바탕', value: "'Gowun Batang', serif" },
+  { label: 'IBM Plex Sans KR', value: "'IBM Plex Sans KR', sans-serif" },
+  { label: '함렛 (Hahmlet)', value: "'Hahmlet', serif" },
+];
+
+export const RATIO_PRESETS = [
+  { label: '1:1', w: 1, h: 1 },
+  { label: '4:5', w: 4, h: 5 },
+  { label: '3:4', w: 3, h: 4 },
+  { label: '2:3', w: 2, h: 3 },
+  { label: '16:9', w: 16, h: 9 },
+  { label: '9:16', w: 9, h: 16 },
+];
+
+export const HIGHLIGHT_SWATCHES = [
+  '#fff3a3', '#ffd6e0', '#c9f0d6', '#cfe4ff', '#e6d9ff', '#ffe0c2', '#e8e8e8',
+];
+
+export const DEFAULT_SETTINGS: Settings = {
+  sidebarSide: 'left',
+  theme: 'plain',
+  autoParse: true,
+  tidyBlankLines: true,
+  typography: {
+    fontFamily: "'Noto Sans KR', sans-serif",
+    fontWeight: 400,
+    fontSize: 17,
+    lineHeight: 1.85,
+    letterSpacing: 0,
+    paragraphGap: 14,
+    horizontalScale: 1,
+    textAlign: 'left',
+    wordBreak: 'keep-all',
+    indent: 0,
+  },
+  roles: {
+    enabled: true,
+    narration: '#3c3c43',
+    dialogue: '#1f4f8b',
+    name: '#8b5a2b',
+    emphasis: '#6b6b76',
+    emphasisItalic: true,
+    dialogueItalic: false,
+    perCharacterDialogue: false,
+  },
+  background: {
+    type: 'solid',
+    color: '#faf8f4',
+    gradientFrom: '#fdfcfb',
+    gradientTo: '#e2d1c3',
+    gradientAngle: 160,
+    imageUrl: '',
+    imageFit: 'cover',
+    videoUrl: '',
+    overlayColor: '#000000',
+    overlayOpacity: 0,
+    blur: 0,
+  },
+  layout: {
+    width: 720,
+    padTop: 56,
+    padRight: 48,
+    padBottom: 56,
+    padLeft: 48,
+    ratioMode: 'auto',
+    ratioW: 4,
+    ratioH: 5,
+    alignY: 'top',
+    radius: 8,
+  },
+  meta: {
+    showTitle: false,
+    title: '',
+    titleSize: 26,
+    titleColor: '#2b2b33',
+    showSubtitle: false,
+    subtitle: '',
+    subtitleSize: 15,
+    subtitleColor: '#6b6b76',
+    showAuthor: false,
+    author: '',
+    authorSize: 13,
+    authorColor: '#8a8a95',
+    align: 'center',
+    position: 'top',
+    gap: 28,
+    divider: true,
+  },
+  messenger: {
+    bubbleRadius: 16,
+    bubbleColor: '#ffffff',
+    bubbleTextColor: '#2b2b33',
+    myBubbleColor: '#ffe812',
+    myBubbleTextColor: '#2b2b33',
+    showProfile: true,
+    profileSize: 38,
+    showName: true,
+    nameSize: 13,
+    bubbleMaxWidth: 72,
+    gap: 14,
+    narrationStyle: 'muted',
+  },
+  characters: {},
+  exportOptions: {
+    format: 'png',
+    scale: 2,
+    quality: 0.95,
+    fileName: '발췌',
+  },
+};
+
+export const SAMPLE_CONTENT = `창밖으로 빗줄기가 길게 늘어졌다. 오래 비워둔 방에서는 종이 냄새가 났다.
+
+세인: "아직 여기 있었네."
+
+*그는 문턱에 선 채로 한참을 망설였다.*
+
+"들어와도 돼." 나는 책을 덮으며 말했다. "어차피 오늘은 아무것도 못 읽었으니까."`;

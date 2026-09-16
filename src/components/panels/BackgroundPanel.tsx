@@ -1,0 +1,98 @@
+import { readFileAsDataUrl } from '../../lib/exporters';
+import { useStore } from '../../store';
+import { ButtonGroup, ColorField, FileButton, Hint, NumberSlider, Select, TextInput } from '../ui';
+import type { BackgroundType } from '../../types';
+
+export function BackgroundPanel() {
+  const { settings, patch } = useStore();
+  const bg = settings.background;
+
+  return (
+    <>
+      <ButtonGroup
+        label="배경 종류"
+        value={bg.type}
+        options={[
+          { label: '단색', value: 'solid' as BackgroundType },
+          { label: '그라데이션', value: 'gradient' as BackgroundType },
+          { label: '이미지 / GIF', value: 'image' as BackgroundType },
+          { label: '영상', value: 'video' as BackgroundType },
+        ]}
+        onChange={(type) => patch('background', { type })}
+      />
+
+      {bg.type === 'solid' ? (
+        <ColorField label="배경색" value={bg.color} onChange={(color) => patch('background', { color })} />
+      ) : null}
+
+      {bg.type === 'gradient' ? (
+        <>
+          <ColorField label="시작 색" value={bg.gradientFrom} onChange={(gradientFrom) => patch('background', { gradientFrom })} />
+          <ColorField label="끝 색" value={bg.gradientTo} onChange={(gradientTo) => patch('background', { gradientTo })} />
+          <NumberSlider label="각도" value={bg.gradientAngle} min={0} max={360} unit="°"
+            onChange={(gradientAngle) => patch('background', { gradientAngle })} />
+        </>
+      ) : null}
+
+      {bg.type === 'image' ? (
+        <>
+          <div className="button-row">
+            <FileButton
+              label="이미지 업로드"
+              accept="image/*"
+              onPick={async (file) => patch('background', { imageUrl: await readFileAsDataUrl(file) })}
+            />
+            {bg.imageUrl ? (
+              <button type="button" className="mini-button" onClick={() => patch('background', { imageUrl: '' })}>
+                제거
+              </button>
+            ) : null}
+          </div>
+          <TextInput label="이미지 주소" value={bg.imageUrl.startsWith('data:') ? '' : bg.imageUrl}
+            placeholder="https://… (업로드 대신 주소 사용)"
+            onChange={(imageUrl) => patch('background', { imageUrl })} />
+          <Select
+            label="채우기"
+            value={bg.imageFit}
+            options={[
+              { label: '꽉 채우기', value: 'cover' as const },
+              { label: '전체 보이기', value: 'contain' as const },
+              { label: '반복', value: 'repeat' as const },
+            ]}
+            onChange={(imageFit) => patch('background', { imageFit })}
+          />
+          <ColorField label="여백 색" value={bg.color} onChange={(color) => patch('background', { color })} />
+          <Hint>GIF 는 미리보기에서 움직이지만, 이미지·PDF 로 저장하면 한 장면으로 고정됩니다.</Hint>
+        </>
+      ) : null}
+
+      {bg.type === 'video' ? (
+        <>
+          <div className="button-row">
+            <FileButton
+              label="영상 업로드"
+              accept="video/*"
+              onPick={async (file) => patch('background', { videoUrl: await readFileAsDataUrl(file) })}
+            />
+            {bg.videoUrl ? (
+              <button type="button" className="mini-button" onClick={() => patch('background', { videoUrl: '' })}>
+                제거
+              </button>
+            ) : null}
+          </div>
+          <TextInput label="영상 주소" value={bg.videoUrl.startsWith('data:') ? '' : bg.videoUrl}
+            placeholder="https://… (mp4/webm)"
+            onChange={(videoUrl) => patch('background', { videoUrl })} />
+          <Hint>저장할 때는 재생 중인 프레임이 그대로 캡처됩니다. 원하는 장면에서 저장하세요.</Hint>
+        </>
+      ) : null}
+
+      <hr className="divider" />
+      <ColorField label="오버레이 색" value={bg.overlayColor} onChange={(overlayColor) => patch('background', { overlayColor })} />
+      <NumberSlider label="오버레이 농도" value={bg.overlayOpacity} min={0} max={0.9} step={0.01} unit=""
+        hint="배경 위 글자 가독성 보정" onChange={(overlayOpacity) => patch('background', { overlayOpacity })} />
+      <NumberSlider label="배경 흐림" value={bg.blur} min={0} max={30}
+        onChange={(blur) => patch('background', { blur })} />
+    </>
+  );
+}

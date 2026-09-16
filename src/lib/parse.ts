@@ -1,0 +1,323 @@
+/**
+ * 대사 / 서술 인식 규칙
+ *  - 따옴표( " “ ” 「」 『』 ) 안의 텍스트는 대사. 줄바꿈을 넘어가도 닫힐 때까지 대사로 본다.
+ *  - *…* 또는 **…** 안의 텍스트는 강조 서술.
+ *  - 그 외 텍스트는 서술.
+ *  - 줄 머리의 `이름:` 은 캐릭터 이름으로 본다.
+ */
+
+export const ROLE_CLASSES = ['te-dialogue', 'te-narration', 'te-emph', 'te-name'] as const;
+
+const OPEN_QUOTES: Record<string, string> = {
+  '"': '"',
+  '“': '”', // “ ”
+  '「': '」', // 「 」
+  '『': '』', // 『 』
+};
+/** 닫는 문자로만 쓰이는 따옴표 — 단독으로 나오면 서술로 흘려보낸다 */
+const CLOSE_ONLY = new Set(['\u201D', '\u300D', '\u300F']);
+
+/** 줄 머리 캐릭터 이름: `세인:` / `세인 :` — 이름은 20자 이내, 따옴표를 포함하지 않는다 */
+const NAME_RE = /^([^\n:："'“”]{1,20})\s*[:：]/;
+
+export type Role = 'dialogue' | 'narration' | 'emph' | 'name';
+
+interface Piece {
+  text: string;
+  role: Role;
+  /** 이 조각이 속한 화자 (캐릭터별 색상 적용용) */
+  speaker?: string;
+}
+
+interface ScanState {
+  /** 열려 있는 따옴표의 닫는 문자. null 이면 대사 밖 */
+  closer: string | null;
+  /** *…* 강조가 열려 있는지 */
+  emph: boolean;
+  /** 현재 블록(줄)의 시작 부분인지 — 캐릭터 이름 판정용 */
+  atLineStart: boolean;
+  /** 가장 최근에 등장한 캐릭터 이름 */
+  speaker: string;
+}
+
+export function createScanState(): ScanState {
+  return { closer: null, emph: false, atLineStart: true, speaker: '' };
+}
+
+/**
+ * 한 텍스트 조각을 역할별로 쪼갠다. state 는 호출 간에 이어지며,
+ * 따옴표가 여러 줄에 걸쳐 열려 있는 상황을 그대로 반영한다.
+ */
+export function scanText(text: string, state: ScanState): Piece[] {
+  const pieces: Piece[] = [];
+  let buffer = '';
+  let bufferRole: Role = state.closer ? 'dialogue' : state.emph ? 'emph' : 'narration';
+
+  const flush = () => {
+    if (buffer) pieces.push({ text: buffer, role: bufferRole, speaker: state.speaker });
+    buffer = '';
+  };
+  const switchTo = (role: Role) => {
+    if (role !== bufferRole) {
+      flush();
+      bufferRole = role;
+    }
+  };
+
+  // 줄 머리 캐릭터 이름 (대사 밖일 때만)
+  let index = 0;
+  if (state.atLineStart && !state.closer && !state.emph) {
+    const match = NAME_RE.exec(text);
+    if (match && match[1].trim()) {
+      state.speaker = match[1].trim();
+      pieces.push({ text: match[0], role: 'name', speaker: state.speaker });
+      index = match[0].length;
+    }
+  }
+  if (text.length > 0) state.atLineStart = false;
+
+  while (index < text.length) {
+    const ch = text[index];
+
+    if (state.closer) {
+      buffer += ch;
+      if (ch === state.closer) {
+        state.closer = null;
+        flush();
+        bufferRole = state.emph ? 'emph' : 'narration';
+      }
+      index += 1;
+      continue;
+    }
+
+    const closer = OPEN_QUOTES[ch];
+    if (closer && !CLOSE_ONLY.has(ch)) {
+      switchTo('dialogue');
+      buffer += ch;
+      state.closer = closer;
+      index += 1;
+      continue;
+    }
+
+    if (ch === '*') {
+      const isDouble = text[index + 1] === '*';
+      const marker = isDouble ? '**' : '*';
+      if (state.emph) {
+        buffer += marker;
+        state.emph = false;
+        flush();
+        bufferRole = 'narration';
+      } else {
+        switchTo('emph');
+        buffer += marker;
+        state.emph = true;
+      }
+      index += marker.length;
+      continue;
+    }
+
+    switchTo(state.emph ? 'emph' : 'narration');
+    buffer += ch;
+    index += 1;
+  }
+
+  flush();
+  return pieces;
+}
+
+/** 블록(줄) 경계를 넘을 때 호출 — 강조는 줄을 넘기지 않고, 이름 판정은 다시 켠다. */
+export function enterNewBlock(state: ScanState): void {
+  state.emph = false;
+  state.atLineStart = true;
+}
+
+/* ------------------------------------------------------------------ */
+/* DOM 마크업                                                          */
+/* ------------------------------------------------------------------ */
+
+const CLASS_BY_ROLE: Record<Role, string> = {
+  dialogue: 'te-dialogue',
+  narration: 'te-narration',
+  emph: 'te-emph',
+  name: 'te-name',
+};
+
+/** 이전에 우리가 씌운 역할 span 을 모두 벗겨낸다. 사용자가 직접 넣은 서식은 건드리지 않는다. */
+export function unwrapRoles(root: HTMLElement): void {
+  const marked = root.querySelectorAll<HTMLElement>('[data-te-role]');
+  marked.forEach((el) => {
+    const parent = el.parentNode;
+    if (!parent) return;
+    while (el.firstChild) parent.insertBefore(el.firstChild, el);
+    parent.removeChild(el);
+  });
+  root.normalize();
+}
+
+function isBlockBoundary(node: Node): boolean {
+  if (node.nodeType !== Node.ELEMENT_NODE) return false;
+  const tag = (node as HTMLElement).tagName;
+  return tag === 'DIV' || tag === 'P' || tag === 'BR' || tag === 'LI';
+}
+
+/**
+ * 에디터 안의 텍스트에 역할 span 을 다시 씌운다.
+ * 텍스트 노드 단위로만 감싸므로 사용자가 적용해 둔 볼드/색상 등은 유지된다.
+ */
+export function markupRoles(root: HTMLElement): void {
+  unwrapRoles(root);
+
+  const state = createScanState();
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  const textNodes: Text[] = [];
+  const boundaries = new Set<Text>();
+  let pendingBoundary = true;
+
+  let node = walker.nextNode();
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node as Text;
+      if (text.data.length > 0) {
+        textNodes.push(text);
+        if (pendingBoundary) boundaries.add(text);
+        pendingBoundary = false;
+      }
+    } else if (isBlockBoundary(node)) {
+      pendingBoundary = true;
+    }
+    node = walker.nextNode();
+  }
+
+  for (const textNode of textNodes) {
+    if (boundaries.has(textNode)) enterNewBlock(state);
+    const pieces = scanText(textNode.data, state);
+    if (pieces.length === 0) continue;
+
+    const fragment = document.createDocumentFragment();
+    for (const piece of pieces) {
+      if (piece.role === 'narration') {
+        fragment.appendChild(document.createTextNode(piece.text));
+      } else {
+        const span = document.createElement('span');
+        span.className = CLASS_BY_ROLE[piece.role];
+        span.dataset.teRole = piece.role;
+        if (piece.speaker) span.dataset.teSpeaker = piece.speaker;
+        span.textContent = piece.text;
+        fragment.appendChild(span);
+      }
+    }
+    textNode.parentNode?.replaceChild(fragment, textNode);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* 메신저 테마용 구조 파싱                                              */
+/* ------------------------------------------------------------------ */
+
+export type Block =
+  | { kind: 'dialogue'; name: string; text: string }
+  | { kind: 'narration'; text: string };
+
+/** *…* / **…** 강조 기호를 벗겨낸다 (말풍선 뷰는 파생 결과라 기호를 남기지 않는다) */
+function stripEmphasis(value: string): string {
+  return value.replace(/\*\*([\s\S]+?)\*\*/g, '$1').replace(/\*([\s\S]+?)\*/g, '$1');
+}
+
+function stripQuotes(value: string): string {
+  const trimmed = value.trim();
+  const first = trimmed[0];
+  const closer = first ? OPEN_QUOTES[first] : undefined;
+  if (closer && trimmed.endsWith(closer) && trimmed.length >= 2) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+/** 평문을 말풍선 단위로 쪼갠다. 여러 줄에 걸친 대사는 하나로 묶는다. */
+export function parseScript(plainText: string): Block[] {
+  const blocks: Block[] = [];
+  const lines = plainText.replace(/\r\n?/g, '\n').split('\n');
+
+  let lastSpeaker = '';
+  let open: { name: string; parts: string[] } | null = null;
+
+  const findOpenQuote = (value: string) => {
+    let closer: string | null = null;
+    for (const ch of value) {
+      if (closer) {
+        if (ch === closer) closer = null;
+      } else if (OPEN_QUOTES[ch]) {
+        closer = OPEN_QUOTES[ch];
+      }
+    }
+    return closer;
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+
+    if (open) {
+      open.parts.push(line);
+      if (!findOpenQuote(open.parts.join('\n'))) {
+        blocks.push({ kind: 'dialogue', name: open.name, text: stripEmphasis(stripQuotes(open.parts.join('\n'))) });
+        open = null;
+      }
+      continue;
+    }
+
+    if (!line.trim()) continue;
+
+    let name = '';
+    let body = line;
+    const match = NAME_RE.exec(line);
+    if (match && match[1].trim()) {
+      name = match[1].trim();
+      body = line.slice(match[0].length).trim();
+      lastSpeaker = name;
+    }
+
+    const hasQuote = /["“「『]/.test(body);
+    if (!hasQuote) {
+      // `이름: 대사` 처럼 따옴표 없이 쓴 경우도 대사로 본다.
+      if (name && body) blocks.push({ kind: 'dialogue', name, text: stripEmphasis(body) });
+      else blocks.push({ kind: 'narration', text: stripEmphasis(line.trim()) });
+      continue;
+    }
+
+    const stillOpen = findOpenQuote(body) !== null;
+    const speaker = name || lastSpeaker || '';
+    if (stillOpen) {
+      open = { name: speaker, parts: [body] };
+      continue;
+    }
+    blocks.push({ kind: 'dialogue', name: speaker, text: stripEmphasis(stripQuotes(body)) });
+    if (speaker) lastSpeaker = speaker;
+  }
+
+  if (open) {
+    blocks.push({ kind: 'dialogue', name: open.name, text: stripEmphasis(stripQuotes(open.parts.join('\n'))) });
+  }
+  return blocks;
+}
+
+/** 본문에 등장하는 캐릭터 이름 목록 */
+export function collectCharacters(plainText: string): string[] {
+  const names = new Set<string>();
+  for (const block of parseScript(plainText)) {
+    if (block.kind === 'dialogue' && block.name) names.add(block.name);
+  }
+  return [...names];
+}
+
+/**
+ * 빈 줄을 정리한다. 문단 사이 간격은 '문단 간격' 옵션이 담당하므로,
+ * 붙여넣은 글의 빈 줄까지 그대로 두면 간격이 두 배로 벌어진다.
+ */
+export function collapseBlankLines(text: string): string {
+  return text
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/\s+$/, ''))
+    .filter((line) => line !== '')
+    .join('\n');
+}
