@@ -180,13 +180,21 @@ body {
 .stage {
   flex: 1;
   position: relative;
-  overflow: auto;
+  display: flex;
+  overflow: hidden;
+  min-width: 0;
   background: var(--stage-bg);
   background-image:
     linear-gradient(45deg, rgba(0, 0, 0, 0.025) 25%, transparent 25%, transparent 75%, rgba(0, 0, 0, 0.025) 75%),
     linear-gradient(45deg, rgba(0, 0, 0, 0.025) 25%, transparent 25%, transparent 75%, rgba(0, 0, 0, 0.025) 75%);
   background-size: 24px 24px;
   background-position: 0 0, 12px 12px;
+}
+.stage-scroll {
+  position: relative;
+  flex: 1;
+  overflow: auto;
+  min-width: 0;
 }
 .stage-inner {
   min-height: 100%;
@@ -195,7 +203,8 @@ body {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  padding: 40px 32px 32px;
+  /* 하단은 확대 막대가 가리지 않도록 비워 둔다 */
+  padding: 40px 32px 72px;
 }
 .stage-caption {
   margin: 0;
@@ -300,6 +309,13 @@ body {
 .zoom-inner { transform-origin: top left; width: max-content; }
 
 .zoom-bar {
+  /* 작업 영역 하단에 붙여 둔다 — 스크롤해도 따라 내려가지 않는다 */
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 25;
+  box-shadow: 0 6px 20px var(--ui-popup-shadow);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -406,19 +422,47 @@ body {
 /* 같은 본문을 그대로 두고, 대사만 말풍선 모양으로 보여준다.             */
 /* 색·크기·글꼴 등 사용자가 준 서식은 전부 살아 있다.                    */
 /* ------------------------------------------------------------------ */
-.messenger-mode .editor > * { margin-top: var(--msg-gap); }
+
+/* 간격은 말풍선이 들어 있는 줄에만 준다 — 일반 문단 간격까지 건드리지 않도록 */
+.messenger-mode .editor > *:has([data-te-role="dialogue"]) { margin-top: var(--msg-gap); }
 .messenger-mode .editor > *:first-child { margin-top: 0; }
 
 .messenger-mode .te-dialogue {
-  display: inline-block;
+  display: block;
+  width: fit-content;
   max-width: var(--msg-max);
-  margin-top: 3px;
-  padding: 10px 16px;
-  border-radius: var(--msg-radius);
+  margin-top: 7px;
+  padding: 11px 16px;
+  /* 프로필이 있는 왼쪽 위 모서리만 각지게 */
+  border-radius: var(--msg-tail) var(--msg-radius) var(--msg-radius) var(--msg-radius);
   background: var(--msg-bubble);
   color: var(--te-ink, var(--msg-bubble-text));
   text-align: left;
-  vertical-align: top;
+}
+
+/*
+ * 여러 줄에 걸친 대사는 줄마다 조각이 생긴다.
+ * 이어지는 조각은 위쪽 여백과 모서리를 없애 한 덩어리처럼 보이게 한다.
+ */
+.messenger-mode .te-dialogue[data-te-cont] {
+  margin-top: 0;
+  padding-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.messenger-mode .editor > *:has(.te-dialogue[data-te-cont]) { margin-top: 0; }
+.messenger-mode .editor > *:has(.te-dialogue):has(+ * .te-dialogue[data-te-cont]) .te-dialogue {
+  padding-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* 이어지는 묶음은 너비를 맞춰야 한 덩어리로 보인다 (fit-content 면 조각마다 폭이 달라진다) */
+.messenger-mode .editor > *:has(.te-dialogue):has(+ * .te-dialogue[data-te-cont]) .te-dialogue,
+.messenger-mode .te-dialogue[data-te-cont] { width: var(--msg-max); }
+
+/* 말풍선은 프로필이 아니라 이름 아래에 오도록 왼쪽을 비워 둔다 */
+.messenger-mode.msg-profile .te-dialogue {
+  margin-left: calc(var(--msg-avatar) + 8px);
 }
 
 /* 메신저에서는 `이름:` 의 콜론과 대사의 따옴표를 감춘다 */
@@ -428,6 +472,7 @@ body {
 /* 이름은 말풍선 위에 작게 */
 .messenger-mode .te-name {
   display: block;
+  margin-bottom: 2px;
   font-size: var(--msg-name-size);
   font-weight: 500;
   line-height: 1.6;
@@ -440,19 +485,27 @@ body {
   display: inline-block;
   width: var(--msg-avatar);
   height: var(--msg-avatar);
-  margin-right: 6px;
+  margin-right: 8px;
   vertical-align: middle;
   border-radius: 40%;
   background: currentColor center/cover no-repeat;
 }
 
-/* '내 쪽' 캐릭터의 오른쪽 정렬과 말풍선 색은 캐릭터별 규칙에서 만든다 */
+/* '내 쪽' 캐릭터의 오른쪽 배치와 말풍선 색은 캐릭터별 규칙에서 만든다 */
 
 /* 서술 처리 */
 .messenger-mode.msg-narration-muted .te-narration { opacity: 0.7; }
 .messenger-mode.msg-narration-hidden .te-narration,
 .messenger-mode.msg-narration-hidden .te-emph,
 .messenger-mode.msg-narration-hidden .te-mark { display: none; }
+
+/* 장식용 구분선 */
+.te-rule {
+  height: 0;
+  margin: 16px 0;
+  border-top: var(--r-width, 1px) var(--r-style, solid) var(--r-color, #d8d8de);
+  user-select: none;
+}
 
 /* 선택 영역 좌측 세로선 */
 .te-bar {
@@ -763,8 +816,10 @@ textarea { resize: vertical; line-height: 1.5; }
 }
 .inline-toolbar button {
   min-width: 32px;
-  padding: 6px 9px;
+  height: 31px;
+  padding: 0 9px;
   font-size: 12.5px;
+  line-height: 1;
   font-family: inherit;
   color: var(--ui-text);
   background: var(--ui-panel);
@@ -842,7 +897,16 @@ textarea { resize: vertical; line-height: 1.5; }
   background: transparent;
   cursor: pointer;
 }
-.cmd-bar { font-size: 15px; line-height: 1; }
+.cmd-bar { font-size: 15px; }
+.rule-color {
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--ui-line);
+  border-radius: 7px;
+  background: transparent;
+  cursor: pointer;
+}
 
 .toggle { position: relative; display: flex; align-items: flex-start; gap: 9px; cursor: pointer; }
 .toggle input {

@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../../defaults';
 import {
   applyBar, applyFontFamily, applyFontSize, applyHighlight, applyTextColor, clearHighlight,
-  alignImage, hasSelectionInside, insertImage, insertPageBreak, pageBreakCount, removeBar,
-  removeFormatting, selectionImage, toggleInline, type ImageAlign,
+  alignImage, hasSelectionInside, insertDivider, insertImage, insertPageBreak, pageBreakCount,
+  removeBar, removeFormatting, selectionImage, toggleInline, type ImageAlign,
 } from '../../lib/format';
 import { readFileAsDataUrl } from '../../lib/exporters';
 import { deleteFontFile, fontFamilyOf, installFont, saveFontFile } from '../../lib/fonts';
@@ -15,6 +15,7 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
   const t = settings.typography;
   const [breaks, setBreaks] = useState(0);
   const [fontError, setFontError] = useState('');
+  const [rule, setRule] = useState({ color: '#d8d8de', width: 1, style: 'solid' });
 
   useEffect(() => { setBreaks(pageBreakCount(editorRoot)); }, [editorRoot]);
 
@@ -335,6 +336,37 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
       {settings.stickers.length > 0 ? (
         <Hint>스티커는 미리보기에서 바로 끌어 옮기고, 고른 뒤 오른쪽 아래 손잡이로 크기를 바꿉니다.</Hint>
       ) : null}
+
+      <hr className="divider" />
+
+      <Field label="구분선" hint="장식용 — 저장할 때 나뉘지 않습니다">
+        <div className="button-row">
+          <input
+            type="color"
+            className="rule-color"
+            value={rule.color}
+            onChange={(e) => setRule({ ...rule, color: e.target.value })}
+          />
+          <select
+            value={rule.style}
+            onChange={(e) => setRule({ ...rule, style: e.target.value })}
+          >
+            <option value="solid">실선</option>
+            <option value="dashed">파선</option>
+            <option value="dotted">점선</option>
+            <option value="double">두 줄</option>
+          </select>
+          <button
+            type="button"
+            className="mini-button"
+            onClick={() => editorRoot && insertDivider(editorRoot, rule)}
+          >
+            넣기
+          </button>
+        </div>
+      </Field>
+      <NumberSlider label="구분선 두께" value={rule.width} min={1} max={12}
+        onChange={(width) => setRule({ ...rule, width })} />
 
       <hr className="divider" />
 

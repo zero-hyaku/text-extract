@@ -40,9 +40,17 @@ function characterCss(settings: Settings): string {
           );
         }
         if (character.isMe) {
-          // 줄 전체를 오른쪽으로 보내야 해서 :has() 로 부모 줄을 잡는다.
+          /*
+           * 줄 전체를 text-align 으로 밀면 말풍선 아래 딸린 글까지 오른쪽으로 간다.
+           * 말풍선과 이름만 옮기도록 각각에 건다.
+           */
           rules.push(
-            `.messenger-mode .editor > *:has([data-te-speaker="${name}"]){text-align:right;}`,
+            `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]`
+            + `{margin-left:auto;margin-right:0;`
+            + `border-top-left-radius:var(--msg-radius);border-top-right-radius:var(--msg-tail);}`,
+            `.messenger-mode [data-te-role="name"][data-te-speaker="${name}"]{text-align:right;}`,
+            `.messenger-mode.msg-profile [data-te-role="dialogue"][data-te-speaker="${name}"]`
+            + `{margin-right:calc(var(--msg-avatar) + 8px);}`,
           );
           if (!character.bubbleColor) {
             rules.push(
@@ -200,6 +208,8 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     ['--msg-avatar' as string]: `${settings.messenger.profileSize}px`,
     ['--msg-max' as string]: `${settings.messenger.bubbleMaxWidth}%`,
     ['--msg-gap' as string]: `${settings.messenger.gap}px`,
+    // 프로필 쪽 모서리만 각지게 — 꼬리 느낌을 준다
+    ['--msg-tail' as string]: `${Math.min(6, settings.messenger.bubbleRadius)}px`,
   };
 
   const contentStyle: CSSProperties = {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { collapseBlankLines, markupRoles } from '../lib/parse';
 import { restoreCaret, saveCaret } from '../lib/caret';
-import { insertPlainText, rememberSelection, selectImage } from '../lib/format';
+import { insertPlainText, rememberSelection, selectImage, syncInlineVars } from '../lib/format';
 
 /**
  * 본문을 줄 단위 평문으로 읽는다.
@@ -68,6 +68,8 @@ export function Editor({
     if (probe.innerHTML !== root.innerHTML) {
       const caret = saveCaret(root);
       markupRoles(root);
+      // 역할 span 을 다시 씌우면서 서식이 바깥 span 으로 옮겨진다 — 변수도 함께 옮긴다.
+      syncInlineVars(root);
       restoreCaret(root, caret);
     }
   }, []);

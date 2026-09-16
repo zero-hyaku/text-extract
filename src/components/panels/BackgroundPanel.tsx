@@ -1,4 +1,5 @@
-import { readFileAsDataUrl } from '../../lib/exporters';
+import { useState } from 'react';
+import { readFileAsDataUrl, urlToDataUrl } from '../../lib/exporters';
 import { useStore } from '../../store';
 import { ButtonGroup, ColorField, Field, FileButton, Hint, NumberSlider, Select, TextInput } from '../ui';
 import type { BackgroundType } from '../../types';
@@ -6,6 +7,19 @@ import type { BackgroundType } from '../../types';
 export function BackgroundPanel() {
   const { settings, patch, adjustingImage, setAdjustingImage } = useStore();
   const bg = settings.background;
+  const [urlNote, setUrlNote] = useState('');
+
+  /** 외부 주소 이미지는 미리 받아 둬야 저장할 때 함께 담긴다. */
+  const fetchIntoDataUrl = async (url: string, key: 'imageUrl' | 'videoUrl') => {
+    if (!url || url.startsWith('data:')) return;
+    setUrlNote('이미지를 받는 중…');
+    try {
+      patch('background', { [key]: await urlToDataUrl(url) });
+      setUrlNote('받았습니다. 이제 저장할 때 함께 담깁니다.');
+    } catch {
+      setUrlNote('이 주소는 다른 사이트에서 가져오는 것을 막고 있어, 저장할 때 빠질 수 있습니다. 파일로 올려 주세요.');
+    }
+  };
 
   return (
     <>
@@ -50,7 +64,16 @@ export function BackgroundPanel() {
           </div>
           <TextInput label="이미지 주소" value={bg.imageUrl.startsWith('data:') ? '' : bg.imageUrl}
             placeholder="https://… (업로드 대신 주소 사용)"
-            onChange={(imageUrl) => patch('background', { imageUrl })} />
+            onChange={(imageUrl) => { setUrlNote(''); patch('background', { imageUrl }); }} />
+          {bg.imageUrl && !bg.imageUrl.startsWith('data:') ? (
+            <div className="button-row">
+              <button type="button" className="mini-button"
+                onClick={() => fetchIntoDataUrl(bg.imageUrl, 'imageUrl')}>
+                저장에 포함되도록 받아 오기
+              </button>
+            </div>
+          ) : null}
+          {urlNote ? <p className="status-line">{urlNote}</p> : null}
           <Select
             label="채우기"
             value={bg.imageFit}

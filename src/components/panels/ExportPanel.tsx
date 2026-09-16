@@ -173,7 +173,12 @@ export function ExportPanel({
           onClick={() => {
             if (!window.confirm('모든 서식을 지우고 기본값으로 되돌릴까요?\n\n사이드바 편집 옵션과 본문에 직접 준 서식(볼드·색·크기)이 모두 사라집니다.\n본문 글자는 그대로 남습니다.')) return;
             resetSettings();
-            if (editorRoot) stripAllFormatting(editorRoot);
+            if (editorRoot) {
+              stripAllFormatting(editorRoot);
+              // DOM 을 직접 바꿨으므로 알려 줘야 저장된 본문까지 갱신된다.
+              // 이걸 빠뜨리면 새로고침했을 때 예전 서식이 되살아난다.
+              editorRoot.dispatchEvent(new Event('input', { bubbles: true }));
+            }
             announce('모든 서식을 기본값으로 되돌렸습니다.');
           }}
         >

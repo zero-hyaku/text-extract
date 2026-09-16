@@ -39,11 +39,38 @@ function freezeVideos(root: HTMLElement): () => void {
   return () => undos.forEach((undo) => undo());
 }
 
+/** 아직 다 받지 못한 이미지가 있으면 캡처가 비어 나온다. 전부 준비될 때까지 기다린다. */
+async function waitForImages(node: HTMLElement): Promise<void> {
+  const images = [...node.querySelectorAll('img')];
+  await Promise.all(images.map(async (image) => {
+    try {
+      if (!image.complete) {
+        await new Promise<void>((resolve) => {
+          image.addEventListener('load', () => resolve(), { once: true });
+          image.addEventListener('error', () => resolve(), { once: true });
+          window.setTimeout(resolve, 4000);
+        });
+      }
+      await image.decode?.();
+    } catch {
+      /* 못 받은 이미지는 그대로 둔다 */
+    }
+  }));
+}
+
 async function withPreparedNode<T>(node: HTMLElement, run: () => Promise<T>): Promise<T> {
   const restore = freezeVideos(node);
   try {
-    // 웹폰트가 준비되기 전에 캡처하면 글꼴이 바뀐 채로 저장된다.
+    // 웹폰트·이미지가 준비되기 전에 캡처하면 글꼴이 바뀌거나 이미지가 빠진 채로 저장된다.
     if (document.fonts?.ready) await document.fonts.ready;
+    await waitForImages(node);
+
+    /*
+     * html-to-image 는 첫 호출에서 글꼴·이미지를 인라인하는 캐시를 채운다.
+     * 그래서 첫 결과가 비거나 일부가 빠지는 일이 잦다 — 한 번 버리고 다시 찍는다.
+     */
+    await toPng(node, { pixelRatio: 0.1, cacheBust: false, filter: exportFilter }).catch(() => '');
+
     return await run();
   } finally {
     restore();
@@ -198,6 +225,24 @@ export async function copyNodeToClipboard(node: HTMLElement, scale: number): Pro
     if (!blob) return false;
     await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
     return true;
+  });
+}
+
+/**
+ * 외부 주소 이미지를 data: URL 로 바꾼다.
+ *
+ * 다른 도메인의 이미지는 보안 정책 때문에 캡처에 담기지 않아, 저장하면 배경이 빠진다.
+ * 미리 받아 두면 업로드한 것과 똑같이 저장된다. 서버가 허락하지 않으면 실패한다.
+ */
+export async function urlToDataUrl(url: string): Promise<string> {
+  const response = await fetch(url, { mode: 'cors' });
+  if (!response.ok) throw new Error(`이미지를 받지 못했습니다 (${response.status})`);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
   });
 }
 

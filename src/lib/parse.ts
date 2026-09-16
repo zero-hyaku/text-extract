@@ -253,11 +253,17 @@ export function markupRoles(root: HTMLElement): void {
   }
 
   for (const textNode of textNodes) {
-    if (boundaries.has(textNode)) enterNewBlock(state);
+    // 따옴표가 닫히지 않은 채 줄이 바뀌면, 이 줄의 첫 대사는 앞 줄에서 이어진 것이다.
+    let carriedOver = false;
+    if (boundaries.has(textNode)) {
+      carriedOver = state.closer !== null;
+      enterNewBlock(state);
+    }
     const pieces = scanText(textNode.data, state);
     if (pieces.length === 0) continue;
 
     const fragment = document.createDocumentFragment();
+    let first = true;
     for (const piece of pieces) {
       // 서술까지 span 으로 감싼다 — 메신저 모드에서 역할별로 다르게 보여주려면
       // 모든 조각이 CSS 로 잡혀야 하기 때문.
@@ -265,6 +271,8 @@ export function markupRoles(root: HTMLElement): void {
       span.className = CLASS_BY_ROLE[piece.role];
       span.dataset.teRole = piece.role;
       if (piece.speaker) span.dataset.teSpeaker = piece.speaker;
+      if (piece.role === 'dialogue' && carriedOver && first) span.dataset.teCont = 'true';
+      first = false;
 
       // `이름:` 의 구분 기호와 대사의 따옴표는 따로 감싼다.
       // 메신저 말풍선에서는 이름과 대사만 보여야 하기 때문이다.

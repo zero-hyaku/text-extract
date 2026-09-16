@@ -57,9 +57,13 @@ export function hasSelectionInside(root: HTMLElement | null): boolean {
  * 덕분에 드래그로 준 서식이 항상 사이드바 역할 서식을 이긴다.
  */
 export function syncInlineVars(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('span[style]').forEach((el) => {
-    if (el.dataset.teRole) return; // 역할 span 자체는 건드리지 않는다
-
+  /*
+   * 역할 span 도 반드시 포함해야 한다.
+   * 브라우저는 선택 영역이 역할 span 과 정확히 겹칠 때 그 span 에 바로 색을 얹는데,
+   * --te-ink 를 같이 심어 두지 않으면 재파싱에서 새로 만들어진 안쪽 역할 span 이
+   * 자기 기본색으로 되돌아가 "일부만 색이 바뀌는" 현상이 생긴다.
+   */
+  root.querySelectorAll<HTMLElement>('[style]').forEach((el) => {
     const color = el.style.color;
     if (color) el.style.setProperty('--te-ink', color);
     else el.style.removeProperty('--te-ink');
@@ -363,6 +367,32 @@ export function removeBar(root: HTMLElement): void {
   root.normalize();
 }
 
+/** 장식용 구분선을 넣는다 (페이지 나눔과 무관). */
+export function insertDivider(
+  root: HTMLElement,
+  look: { color: string; width: number; style: string },
+): void {
+  restoreSelection(root);
+  const rule = document.createElement('div');
+  rule.className = 'te-rule';
+  rule.dataset.teRule = 'true';
+  rule.contentEditable = 'false';
+  rule.style.setProperty('--r-color', look.color);
+  rule.style.setProperty('--r-width', `${look.width}px`);
+  rule.style.setProperty('--r-style', look.style);
+
+  const sel = window.getSelection();
+  let line: Node | null = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).startContainer : null;
+  while (line && line.parentNode !== root) line = line.parentNode;
+
+  if (line) root.insertBefore(rule, line.nextSibling);
+  else root.appendChild(rule);
+
+  const after = document.createElement('div');
+  after.appendChild(document.createElement('br'));
+  root.insertBefore(after, rule.nextSibling);
+}
+
 /** 커서 자리에 페이지 나눔선을 넣는다. 저장할 때 이 선을 기준으로 쪼갠다. */
 export function insertPageBreak(root: HTMLElement): void {
   const sel = window.getSelection();
@@ -390,7 +420,8 @@ export function pageBreakCount(root: HTMLElement | null): number {
 
 /** 본문에 적용된 모든 인라인 서식을 벗겨낸다 (역할 span 은 유지). */
 export function stripAllFormatting(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('b, strong, i, em, u, s, strike, font, span.te-bar').forEach((el) => {
+  root.querySelectorAll<HTMLElement>('.te-rule, .te-bubble-name').forEach((el) => el.remove());
+  root.querySelectorAll<HTMLElement>('b, strong, i, em, u, s, strike, font, span.te-bar, .te-bubble, .te-bubble-text').forEach((el) => {
     const parent = el.parentNode;
     if (!parent) return;
     while (el.firstChild) parent.insertBefore(el.firstChild, el);

@@ -163,57 +163,60 @@ export function App() {
         onDoubleClick={() => set('sidebarWidth', 336)}
       />
 
-      <main className="stage" ref={setStageNode}>
-        <div className="stage-inner">
-          {/* 확대해도 스크롤 범위가 맞도록 배율만큼 자리를 잡아 둔다 */}
-          <div
-            className="zoom-frame"
-            style={{
-              width: settings.layout.width * zoom,
-              height: previewHeight > 0 ? previewHeight * zoom : undefined,
-              ['--preview-zoom' as string]: String(zoom),
-            }}
-            onPointerDown={(event) => {
-              if (!(event.target as HTMLElement).closest('.sticker')) setSelectedSticker(null);
-            }}
-          >
-            <div className="zoom-inner" style={{ transform: `scale(${zoom})` }}>
-              <Preview settings={settings} captureRef={setCaptureNode}>
-                {/* 메신저는 같은 본문을 말풍선 모양으로 보여줄 뿐이라 에디터는 늘 같은 것을 쓴다 */}
-                <div className="editor-wrap">
-                  <Editor
-                    initialContent={liveHtml.current}
-                    autoParse={settings.autoParse}
-                    tidyBlankLines={settings.tidyBlankLines}
-                    onRootChange={(node) => { editorRootRef.current = node; setEditorRoot(node); }}
-                    onTextChange={setPlainText}
-                    onHtmlChange={handleHtmlChange}
-                  />
-                  {isEmpty ? (
-                    <p className="editor-placeholder" data-export-ignore="true">
-                      여기에 본문을 붙여넣거나 바로 입력하세요.
-                    </p>
-                  ) : null}
-                </div>
-                <Stickers zoom={zoom} />
-              </Preview>
+      <main className="stage">
+        {/* 스크롤은 안쪽에서만 일어나게 해, 확대 막대를 작업 영역 하단에 붙여 둔다 */}
+        <div className="stage-scroll" ref={setStageNode}>
+          <div className="stage-inner">
+            {/* 확대해도 스크롤 범위가 맞도록 배율만큼 자리를 잡아 둔다 */}
+            <div
+              className="zoom-frame"
+              style={{
+                width: settings.layout.width * zoom,
+                height: previewHeight > 0 ? previewHeight * zoom : undefined,
+                ['--preview-zoom' as string]: String(zoom),
+              }}
+              onPointerDown={(event) => {
+                if (!(event.target as HTMLElement).closest('.sticker')) setSelectedSticker(null);
+              }}
+            >
+              <div className="zoom-inner" style={{ transform: `scale(${zoom})` }}>
+                <Preview settings={settings} captureRef={setCaptureNode}>
+                  {/* 메신저는 같은 본문을 말풍선 모양으로 보여줄 뿐이라 에디터는 늘 같은 것을 쓴다 */}
+                  <div className="editor-wrap">
+                    <Editor
+                      initialContent={liveHtml.current}
+                      autoParse={settings.autoParse}
+                      tidyBlankLines={settings.tidyBlankLines}
+                      onRootChange={(node) => { editorRootRef.current = node; setEditorRoot(node); }}
+                      onTextChange={setPlainText}
+                      onHtmlChange={handleHtmlChange}
+                    />
+                    {isEmpty ? (
+                      <p className="editor-placeholder" data-export-ignore="true">
+                        여기에 본문을 붙여넣거나 바로 입력하세요.
+                      </p>
+                    ) : null}
+                  </div>
+                  <Stickers zoom={zoom} />
+                </Preview>
+              </div>
             </div>
-          </div>
 
-          <div className="zoom-bar" data-export-ignore="true">
-            <button type="button" onClick={() => stepZoom(-1)} title="축소" disabled={zoom <= ZOOM_STEPS[0]}>−</button>
-            <span className="zoom-value">{Math.round(zoom * 100)}%</span>
-            <button type="button" onClick={() => stepZoom(1)} title="확대" disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}>+</button>
-            <span className="zoom-sep" />
-            <button type="button" onClick={() => set('previewZoom', 1)}>100%</button>
-            <button type="button" onClick={zoomToFit}>화면 맞춤</button>
+            <p className="stage-caption" data-export-ignore="true">
+              {isMessenger
+                ? '메신저 테마 — 대사만 말풍선 모양으로 보이며, 편집과 서식은 그대로 씁니다.'
+                : '미리보기 영역에 직접 입력·붙여넣기 하고, 텍스트를 드래그하면 편집 팝업이 열립니다.'}
+            </p>
           </div>
+        </div>
 
-          <p className="stage-caption" data-export-ignore="true">
-            {isMessenger
-              ? '메신저 테마 — 대사만 말풍선 모양으로 보이며, 편집과 서식은 그대로 씁니다.'
-              : '미리보기 영역에 직접 입력·붙여넣기 하고, 텍스트를 드래그하면 편집 팝업이 열립니다.'}
-          </p>
+        <div className="zoom-bar" data-export-ignore="true">
+          <button type="button" onClick={() => stepZoom(-1)} title="축소" disabled={zoom <= ZOOM_STEPS[0]}>−</button>
+          <span className="zoom-value">{Math.round(zoom * 100)}%</span>
+          <button type="button" onClick={() => stepZoom(1)} title="확대" disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}>+</button>
+          <span className="zoom-sep" />
+          <button type="button" onClick={() => set('previewZoom', 1)}>100%</button>
+          <button type="button" onClick={zoomToFit}>화면 맞춤</button>
         </div>
 
         <SelectionPopup editorRoot={editorRoot} boundary={stageNode} zoom={zoom} />
