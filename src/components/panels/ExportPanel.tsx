@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { copyNodeToClipboard, exportNode } from '../../lib/exporters';
 import { deleteSlot, downloadPreset, loadSlots, readPresetFile, saveSlot, type PresetSlot } from '../../lib/presets';
+import { stripAllFormatting } from '../../lib/format';
 import { useStore } from '../../store';
 import { ButtonGroup, Field, Hint, NumberSlider, Select, TextInput } from '../ui';
 import type { ExportOptions } from '../../types';
 
-export function ExportPanel({ captureNode }: { captureNode: HTMLElement | null }) {
+export function ExportPanel({
+  captureNode, editorRoot,
+}: { captureNode: HTMLElement | null; editorRoot: HTMLElement | null }) {
   const { settings, patch, replaceSettings, resetSettings } = useStore();
   const options = settings.exportOptions;
 
@@ -161,18 +164,34 @@ export function ExportPanel({ captureNode }: { captureNode: HTMLElement | null }
       </Field>
 
       <hr className="divider" />
-      <button
-        type="button"
-        className="mini-button danger"
-        onClick={() => {
-          if (window.confirm('모든 편집 옵션을 기본값으로 되돌릴까요? 본문은 그대로 남습니다.')) {
+
+      <div className="panel-head"><span>초기화</span></div>
+      <div className="button-row">
+        <button
+          type="button"
+          className="mini-button danger"
+          onClick={() => {
+            if (!window.confirm('모든 서식을 지우고 기본값으로 되돌릴까요?\n\n사이드바 편집 옵션과 본문에 직접 준 서식(볼드·색·크기)이 모두 사라집니다.\n본문 글자는 그대로 남습니다.')) return;
             resetSettings();
-            announce('기본값으로 되돌렸습니다.');
-          }
-        }}
-      >
-        편집 옵션 초기화
-      </button>
+            if (editorRoot) stripAllFormatting(editorRoot);
+            announce('모든 서식을 기본값으로 되돌렸습니다.');
+          }}
+        >
+          모든 서식 초기화
+        </button>
+        <button
+          type="button"
+          className="mini-button"
+          onClick={() => {
+            if (!window.confirm('사이드바 편집 옵션만 기본값으로 되돌릴까요? 본문에 직접 준 서식은 남습니다.')) return;
+            resetSettings();
+            announce('편집 옵션을 되돌렸습니다.');
+          }}
+        >
+          편집 옵션만
+        </button>
+      </div>
+      <Hint>본문에 직접 준 서식만 지우려면, 글자를 드래그한 뒤 팝업의 <strong>지우기</strong>를 누르세요.</Hint>
     </>
   );
 }

@@ -1,6 +1,7 @@
 import type { Settings } from './types';
 
 export const FONT_OPTIONS = [
+  { label: '프리텐다드 (Pretendard)', value: "'Pretendard Variable', Pretendard, sans-serif" },
   { label: '본고딕 (Noto Sans KR)', value: "'Noto Sans KR', sans-serif" },
   { label: '본명조 (Noto Serif KR)', value: "'Noto Serif KR', serif" },
   { label: '나눔고딕', value: "'Nanum Gothic', sans-serif" },
@@ -30,9 +31,10 @@ export const DEFAULT_SETTINGS: Settings = {
   autoParse: true,
   tidyBlankLines: true,
   typography: {
-    fontFamily: "'Noto Sans KR', sans-serif",
+    fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
     fontWeight: 400,
     fontSize: 17,
+    dialogueFontSize: 17,
     lineHeight: 1.85,
     letterSpacing: 0,
     paragraphGap: 14,
@@ -49,7 +51,6 @@ export const DEFAULT_SETTINGS: Settings = {
     emphasis: '#6b6b76',
     emphasisItalic: true,
     dialogueItalic: false,
-    perCharacterDialogue: false,
   },
   background: {
     type: 'solid',
@@ -89,10 +90,12 @@ export const DEFAULT_SETTINGS: Settings = {
     author: '',
     authorSize: 13,
     authorColor: '#8a8a95',
+    authorAlign: 'right',
+    authorGap: 32,
     align: 'center',
     position: 'top',
     gap: 28,
-    divider: true,
+    innerGap: 6,
   },
   messenger: {
     bubbleRadius: 16,

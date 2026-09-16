@@ -142,12 +142,28 @@ const CLASS_BY_ROLE: Record<Role, string> = {
   name: 'te-name',
 };
 
-/** 이전에 우리가 씌운 역할 span 을 모두 벗겨낸다. 사용자가 직접 넣은 서식은 건드리지 않는다. */
+/**
+ * 이전에 우리가 씌운 역할 span 을 벗겨낸다.
+ *
+ * 브라우저는 선택 영역이 역할 span 과 정확히 겹칠 때 새 요소를 만들지 않고
+ * 그 span 에 바로 style 을 얹는다. 그래서 그냥 벗겨내면 사용자가 방금 준
+ * 볼드·색상이 함께 사라진다 — style 이 남아 있으면 평범한 span 으로 옮겨 살린다.
+ */
 export function unwrapRoles(root: HTMLElement): void {
   const marked = root.querySelectorAll<HTMLElement>('[data-te-role]');
   marked.forEach((el) => {
     const parent = el.parentNode;
     if (!parent) return;
+
+    const style = el.getAttribute('style');
+    if (style) {
+      const keep = document.createElement('span');
+      keep.setAttribute('style', style);
+      while (el.firstChild) keep.appendChild(el.firstChild);
+      parent.replaceChild(keep, el);
+      return;
+    }
+
     while (el.firstChild) parent.insertBefore(el.firstChild, el);
     parent.removeChild(el);
   });
@@ -233,70 +249,63 @@ function stripQuotes(value: string): string {
   return trimmed;
 }
 
-/** 평문을 말풍선 단위로 쪼갠다. 여러 줄에 걸친 대사는 하나로 묶는다. */
+/**
+ * 평문을 말풍선 단위로 쪼갠다.
+ *
+ * 본문 인식과 똑같은 스캐너를 쓰므로, 한 줄 안에 대사와 서술이 섞여 있어도
+ * (예: `"들어와도 돼." 나는 책을 덮으며 말했다. "어차피…"`) 각각 따로 잡힌다.
+ * 따옴표가 줄을 넘어가면 그 대사는 하나의 말풍선으로 이어 붙인다.
+ */
 export function parseScript(plainText: string): Block[] {
   const blocks: Block[] = [];
+  const state = createScanState();
   const lines = plainText.replace(/\r\n?/g, '\n').split('\n');
 
-  let lastSpeaker = '';
-  let open: { name: string; parts: string[] } | null = null;
+  let open: { kind: 'dialogue' | 'narration'; name: string; text: string } | null = null;
 
-  const findOpenQuote = (value: string) => {
-    let closer: string | null = null;
-    for (const ch of value) {
-      if (closer) {
-        if (ch === closer) closer = null;
-      } else if (OPEN_QUOTES[ch]) {
-        closer = OPEN_QUOTES[ch];
+  const flush = () => {
+    if (!open) return;
+    const raw = open.text.trim();
+    if (raw) {
+      if (open.kind === 'dialogue') {
+        blocks.push({ kind: 'dialogue', name: open.name, text: stripEmphasis(stripQuotes(raw)) });
+      } else {
+        blocks.push({ kind: 'narration', text: stripEmphasis(raw) });
       }
     }
-    return closer;
+    open = null;
   };
 
   for (const rawLine of lines) {
-    const line = rawLine.trimEnd();
+    // 따옴표가 아직 닫히지 않은 채 줄이 바뀌면 같은 말풍선을 이어서 채운다.
+    const carriedOver = state.closer !== null;
+    enterNewBlock(state);
 
-    if (open) {
-      open.parts.push(line);
-      if (!findOpenQuote(open.parts.join('\n'))) {
-        blocks.push({ kind: 'dialogue', name: open.name, text: stripEmphasis(stripQuotes(open.parts.join('\n'))) });
-        open = null;
+    const line = rawLine.replace(/\s+$/, '');
+    if (!line.trim()) {
+      if (!carriedOver) flush();
+      continue;
+    }
+
+    if (carriedOver && open) open.text += '\n';
+    else flush();
+
+    for (const piece of scanText(line, state)) {
+      if (piece.role === 'name') continue;
+
+      const kind = piece.role === 'dialogue' ? 'dialogue' : 'narration';
+      const name = piece.speaker ?? '';
+
+      if (open && open.kind === kind && (kind === 'narration' || open.name === name)) {
+        open.text += piece.text;
+      } else {
+        flush();
+        open = { kind, name, text: piece.text };
       }
-      continue;
     }
-
-    if (!line.trim()) continue;
-
-    let name = '';
-    let body = line;
-    const match = NAME_RE.exec(line);
-    if (match && match[1].trim()) {
-      name = match[1].trim();
-      body = line.slice(match[0].length).trim();
-      lastSpeaker = name;
-    }
-
-    const hasQuote = /["“「『]/.test(body);
-    if (!hasQuote) {
-      // `이름: 대사` 처럼 따옴표 없이 쓴 경우도 대사로 본다.
-      if (name && body) blocks.push({ kind: 'dialogue', name, text: stripEmphasis(body) });
-      else blocks.push({ kind: 'narration', text: stripEmphasis(line.trim()) });
-      continue;
-    }
-
-    const stillOpen = findOpenQuote(body) !== null;
-    const speaker = name || lastSpeaker || '';
-    if (stillOpen) {
-      open = { name: speaker, parts: [body] };
-      continue;
-    }
-    blocks.push({ kind: 'dialogue', name: speaker, text: stripEmphasis(stripQuotes(body)) });
-    if (speaker) lastSpeaker = speaker;
   }
 
-  if (open) {
-    blocks.push({ kind: 'dialogue', name: open.name, text: stripEmphasis(stripQuotes(open.parts.join('\n'))) });
-  }
+  flush();
   return blocks;
 }
 

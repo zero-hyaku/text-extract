@@ -63,11 +63,7 @@ export function App() {
         </div>
 
         {!isMessenger ? (
-          <SelectionPopup
-            editorRoot={editorRoot}
-            boundary={stageNode}
-            fontSize={settings.typography.fontSize}
-          />
+          <SelectionPopup editorRoot={editorRoot} boundary={stageNode} />
         ) : null}
       </main>
     </div>

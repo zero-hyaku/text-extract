@@ -1,7 +1,7 @@
 import { FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../../defaults';
 import {
   applyFontSize, applyHighlight, applyTextColor, clearHighlight,
-  removeFormatting, toggleInline,
+  hasSelectionInside, removeFormatting, toggleInline,
 } from '../../lib/format';
 import { useStore } from '../../store';
 import { ButtonGroup, Field, Hint, NumberSlider, Select } from '../ui';
@@ -9,9 +9,20 @@ import { ButtonGroup, Field, Hint, NumberSlider, Select } from '../ui';
 export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
   const { settings, patch } = useStore();
   const t = settings.typography;
-  const guard = (run: () => void) => () => {
-    if (!editorRoot) return;
-    run();
+
+  const guard = (run: (root: HTMLElement) => void) => () => {
+    if (editorRoot) run(editorRoot);
+  };
+
+  /**
+   * 크기 조절은 선택 여부에 따라 대상이 달라진다.
+   *  - 드래그로 고른 영역이 있으면 그 영역만
+   *  - 없으면 본문 전체(서술 또는 대사 기준값)
+   */
+  const changeSize = (next: number, target: 'fontSize' | 'dialogueFontSize') => {
+    const size = Math.max(8, next);
+    if (hasSelectionInside(editorRoot) && editorRoot) applyFontSize(editorRoot, size);
+    else patch('typography', { [target]: size });
   };
 
   return (
@@ -39,17 +50,11 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
             />
           ))}
           <input type="color" className="swatch-picker" onChange={(e) => applyHighlight(e.target.value)} />
-          <button
-            type="button"
-            className="swatch-clear"
-            onClick={guard(() => editorRoot && clearHighlight(editorRoot))}
-          >
-            없음
-          </button>
+          <button type="button" className="swatch-clear" onClick={guard(clearHighlight)}>없음</button>
         </div>
       </Field>
 
-      <Field label="선택 영역 글자 색">
+      <Field label="선택 영역 글자 색" hint="사이드바 색상보다 우선">
         <div className="swatch-row" onMouseDown={(e) => e.preventDefault()}>
           {['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8', '#8b5a2b', '#8a8a95'].map((color) => (
             <button
@@ -58,24 +63,14 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
               className="swatch"
               style={{ background: color }}
               title={color}
-              onClick={guard(() => applyTextColor(color))}
+              onClick={guard((root) => applyTextColor(root, color))}
             />
           ))}
-          <input type="color" className="swatch-picker" onChange={(e) => applyTextColor(e.target.value)} />
-        </div>
-      </Field>
-
-      <Field label="선택 영역 글자 크기">
-        <div className="inline-toolbar" onMouseDown={(e) => e.preventDefault()}>
-          {[-4, -2, 2, 4, 8].map((delta) => (
-            <button
-              key={delta}
-              type="button"
-              onClick={guard(() => editorRoot && applyFontSize(editorRoot, Math.max(8, t.fontSize + delta)))}
-            >
-              {delta > 0 ? `+${delta}` : delta}
-            </button>
-          ))}
+          <input
+            type="color"
+            className="swatch-picker"
+            onChange={(e) => editorRoot && applyTextColor(editorRoot, e.target.value)}
+          />
         </div>
       </Field>
 
@@ -98,8 +93,24 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
         ]}
         onChange={(fontWeight) => patch('typography', { fontWeight })}
       />
-      <NumberSlider label="텍스트 크기" value={t.fontSize} min={10} max={64}
-        onChange={(fontSize) => patch('typography', { fontSize })} />
+
+      <NumberSlider
+        label="서술 크기"
+        value={t.fontSize}
+        min={8}
+        max={64}
+        hint="드래그 중이면 선택 영역만"
+        onChange={(value) => changeSize(value, 'fontSize')}
+      />
+      <NumberSlider
+        label="대사 크기"
+        value={t.dialogueFontSize}
+        min={8}
+        max={64}
+        hint="드래그 중이면 선택 영역만"
+        onChange={(value) => changeSize(value, 'dialogueFontSize')}
+      />
+
       <NumberSlider label="행간" value={t.lineHeight} min={1} max={4} step={0.05} unit="배"
         onChange={(lineHeight) => patch('typography', { lineHeight })} />
       <NumberSlider label="자간" value={t.letterSpacing} min={-3} max={12} step={0.1}

@@ -6,7 +6,10 @@ export type AlignY = 'top' | 'center' | 'bottom';
 export interface Typography {
   fontFamily: string;
   fontWeight: number;
+  /** 서술(기본) 글자 크기 */
   fontSize: number;
+  /** 대사 글자 크기 */
+  dialogueFontSize: number;
   lineHeight: number;
   letterSpacing: number;
   paragraphGap: number;
@@ -28,8 +31,6 @@ export interface RoleColors {
   emphasisItalic: boolean;
   /** 대사 기울임 */
   dialogueItalic: boolean;
-  /** 캐릭터별 색을 대사에도 적용 */
-  perCharacterDialogue: boolean;
 }
 
 export type BackgroundType = 'solid' | 'gradient' | 'image' | 'video';
@@ -77,10 +78,15 @@ export interface Meta {
   author: string;
   authorSize: number;
   authorColor: string;
+  /** 제작자는 항상 본문 아래에 오고, 정렬은 제목과 따로 잡는다 */
+  authorAlign: Exclude<AlignX, 'justify'>;
+  authorGap: number;
   align: Exclude<AlignX, 'justify'>;
   position: 'top' | 'bottom';
+  /** 제목 블록과 본문 사이 간격 */
   gap: number;
-  divider: boolean;
+  /** 제목·부제목 사이 간격 */
+  innerGap: number;
 }
 
 export interface Messenger {

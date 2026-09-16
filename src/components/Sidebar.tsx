@@ -65,7 +65,7 @@ export function Sidebar({ editorRoot, captureNode, detectedNames }: SidebarProps
           <ThemePanel />
         </Section>
         <Section title="저장 / 내보내기" defaultOpen>
-          <ExportPanel captureNode={captureNode} />
+          <ExportPanel captureNode={captureNode} editorRoot={editorRoot} />
         </Section>
       </div>
     </aside>

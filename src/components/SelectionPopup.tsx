@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { HIGHLIGHT_SWATCHES } from '../defaults';
 import {
   applyFontSize, applyHighlight, applyTextColor, clearHighlight,
-  hasSelectionInside, queryInline, removeFormatting, toggleInline,
-  type InlineCommand,
+  hasSelectionInside, queryInline, removeFormatting, selectionRole, selectionText,
+  toggleInline, type InlineCommand,
 } from '../lib/format';
+import type { Role } from '../lib/parse';
+import { useStore } from '../store';
 
 interface Position { top: number; left: number; }
 
@@ -15,21 +17,36 @@ const INLINE_BUTTONS: Array<{ command: InlineCommand; label: string; title: stri
   { command: 'strikeThrough', label: 'S', title: '취소선' },
 ];
 
-/** 드래그로 선택한 텍스트 위에 뜨는 편집 팝업 */
+const ROLE_LABEL: Record<Role, string> = {
+  dialogue: '대사',
+  narration: '서술',
+  name: '이름',
+  emph: '강조 서술',
+};
+
+const TEXT_SWATCHES = ['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8', '#8b5a2b', '#8a8a95'];
+
+type Panel = 'none' | 'color' | 'highlight' | 'size' | 'character';
+/** 색을 '이 선택 영역만' 바꿀지, '같은 역할 전체'에 적용할지 */
+type ColorScope = 'role' | 'selection';
+
 export function SelectionPopup({
-  editorRoot, boundary, fontSize,
-}: { editorRoot: HTMLElement | null; boundary: HTMLElement | null; fontSize: number }) {
-  const popupRef = useRef<HTMLDivElement | null>(null);
+  editorRoot, boundary,
+}: { editorRoot: HTMLElement | null; boundary: HTMLElement | null }) {
+  const { settings, patch, upsertCharacter } = useStore();
   const [position, setPosition] = useState<Position | null>(null);
   const [active, setActive] = useState<Record<string, boolean>>({});
-  const [expanded, setExpanded] = useState<'none' | 'color' | 'highlight' | 'size'>('none');
+  const [panel, setPanel] = useState<Panel>('none');
+  const [role, setRole] = useState<Role>('narration');
+  const [scope, setScope] = useState<ColorScope>('role');
+  const [picked, setPicked] = useState('');
 
   useEffect(() => {
     const update = () => {
       if (!editorRoot || !boundary) return;
       if (!hasSelectionInside(editorRoot)) {
         setPosition(null);
-        setExpanded('none');
+        setPanel('none');
         return;
       }
       const sel = window.getSelection();
@@ -44,6 +61,8 @@ export function SelectionPopup({
         left: rect.left - host.left + rect.width / 2,
       });
       setActive(Object.fromEntries(INLINE_BUTTONS.map((b) => [b.command, queryInline(b.command)])));
+      setRole(selectionRole(editorRoot));
+      setPicked(selectionText());
     };
 
     document.addEventListener('selectionchange', update);
@@ -58,18 +77,30 @@ export function SelectionPopup({
 
   if (!position || !editorRoot) return null;
 
-  // 버튼을 누를 때 선택이 풀리지 않도록 mousedown 을 막는다.
-  const keepSelection = (event: React.MouseEvent) => event.preventDefault();
-
   const refreshActive = () =>
     setActive(Object.fromEntries(INLINE_BUTTONS.map((b) => [b.command, queryInline(b.command)])));
 
+  /** 역할 전체에 적용하면 사이드바 색상과 그대로 연동된다. */
+  const setColor = (color: string) => {
+    if (scope === 'selection') {
+      applyTextColor(editorRoot, color);
+      return;
+    }
+    if (role === 'dialogue') patch('roles', { dialogue: color });
+    else if (role === 'name') patch('roles', { name: color });
+    else if (role === 'emph') patch('roles', { emphasis: color });
+    else patch('roles', { narration: color });
+  };
+
+  const baseSize = role === 'dialogue' ? settings.typography.dialogueFontSize : settings.typography.fontSize;
+  const isCharacter = Boolean(settings.characters[picked]);
+
   return (
     <div
-      ref={popupRef}
       className="selection-popup"
       style={{ top: position.top, left: position.left }}
-      onMouseDown={keepSelection}
+      // 버튼을 누를 때 선택이 풀리지 않도록 mousedown 을 막는다.
+      onMouseDown={(event) => event.preventDefault()}
       data-export-ignore="true"
     >
       <div className="popup-main">
@@ -88,50 +119,82 @@ export function SelectionPopup({
         <button
           type="button"
           title="글자 색"
-          className={`popup-btn ${expanded === 'color' ? 'is-active' : ''}`}
-          onClick={() => setExpanded((v) => (v === 'color' ? 'none' : 'color'))}
+          className={`popup-btn ${panel === 'color' ? 'is-active' : ''}`}
+          onClick={() => setPanel((v) => (v === 'color' ? 'none' : 'color'))}
         >
           색
         </button>
         <button
           type="button"
           title="하이라이트"
-          className={`popup-btn ${expanded === 'highlight' ? 'is-active' : ''}`}
-          onClick={() => setExpanded((v) => (v === 'highlight' ? 'none' : 'highlight'))}
+          className={`popup-btn ${panel === 'highlight' ? 'is-active' : ''}`}
+          onClick={() => setPanel((v) => (v === 'highlight' ? 'none' : 'highlight'))}
         >
           형광
         </button>
         <button
           type="button"
           title="글자 크기"
-          className={`popup-btn ${expanded === 'size' ? 'is-active' : ''}`}
-          onClick={() => setExpanded((v) => (v === 'size' ? 'none' : 'size'))}
+          className={`popup-btn ${panel === 'size' ? 'is-active' : ''}`}
+          onClick={() => setPanel((v) => (v === 'size' ? 'none' : 'size'))}
         >
           크기
         </button>
+        <button
+          type="button"
+          title="선택한 글자를 캐릭터로 지정"
+          className={`popup-btn ${panel === 'character' ? 'is-active' : ''}`}
+          onClick={() => setPanel((v) => (v === 'character' ? 'none' : 'character'))}
+        >
+          캐릭터
+        </button>
         <span className="popup-divider" />
-        <button type="button" title="서식 지우기" className="popup-btn" onClick={() => { removeFormatting(); refreshActive(); }}>
+        <button type="button" title="서식 지우기" className="popup-btn"
+          onClick={() => { removeFormatting(editorRoot); refreshActive(); }}>
           지우기
         </button>
       </div>
 
-      {expanded === 'color' ? (
-        <div className="popup-sub">
-          {['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8', '#8b5a2b', '#8a8a95'].map((color) => (
+      {panel === 'color' ? (
+        <div className="popup-sub popup-sub-column">
+          <div className="popup-scope">
             <button
-              key={color}
               type="button"
-              className="swatch"
-              style={{ background: color }}
-              onClick={() => applyTextColor(color)}
-              title={color}
-            />
-          ))}
-          <input type="color" className="swatch-picker" onChange={(e) => applyTextColor(e.target.value)} />
+              className={scope === 'role' ? 'is-active' : ''}
+              onClick={() => setScope('role')}
+            >
+              {ROLE_LABEL[role]} 전체
+            </button>
+            <button
+              type="button"
+              className={scope === 'selection' ? 'is-active' : ''}
+              onClick={() => setScope('selection')}
+            >
+              선택 영역만
+            </button>
+          </div>
+          <div className="popup-row">
+            {TEXT_SWATCHES.map((color) => (
+              <button
+                key={color}
+                type="button"
+                className="swatch"
+                style={{ background: color }}
+                onClick={() => setColor(color)}
+                title={color}
+              />
+            ))}
+            <input type="color" className="swatch-picker" onChange={(e) => setColor(e.target.value)} />
+          </div>
+          <p className="popup-note">
+            {scope === 'role'
+              ? '사이드바의 색상 설정과 함께 바뀝니다.'
+              : '이 영역에만 적용되며, 사이드바 색상보다 우선합니다.'}
+          </p>
         </div>
       ) : null}
 
-      {expanded === 'highlight' ? (
+      {panel === 'highlight' ? (
         <div className="popup-sub">
           {HIGHLIGHT_SWATCHES.map((color) => (
             <button
@@ -148,18 +211,43 @@ export function SelectionPopup({
         </div>
       ) : null}
 
-      {expanded === 'size' ? (
+      {panel === 'size' ? (
         <div className="popup-sub">
-          {[-6, -3, -1, 0, 1, 3, 6, 12].map((delta) => (
+          {[-6, -3, -1, 1, 3, 6, 12].map((delta) => (
             <button
               key={delta}
               type="button"
               className="popup-btn slim"
-              onClick={() => applyFontSize(editorRoot, Math.max(8, fontSize + delta))}
+              onClick={() => applyFontSize(editorRoot, Math.max(8, baseSize + delta))}
             >
-              {delta === 0 ? '기본' : `${fontSize + delta}`}
+              {baseSize + delta}
             </button>
           ))}
+          <button type="button" className="popup-btn slim"
+            onClick={() => applyFontSize(editorRoot, baseSize)}>
+            기본 {baseSize}
+          </button>
+        </div>
+      ) : null}
+
+      {panel === 'character' ? (
+        <div className="popup-sub popup-sub-column">
+          <p className="popup-note">
+            선택한 글자: <strong>{picked || '(없음)'}</strong>
+          </p>
+          <div className="popup-row">
+            <button
+              type="button"
+              className="popup-btn slim"
+              disabled={!picked || isCharacter}
+              onClick={() => {
+                upsertCharacter(picked, { color: settings.roles.name });
+                setPanel('none');
+              }}
+            >
+              {isCharacter ? '이미 등록됨' : '캐릭터로 추가'}
+            </button>
+          </div>
         </div>
       ) : null}
     </div>

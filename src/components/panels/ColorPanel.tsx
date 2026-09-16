@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { readFileAsDataUrl } from '../../lib/exporters';
 import { useStore } from '../../store';
 import { ColorField, FileButton, Hint, Toggle } from '../ui';
@@ -5,6 +6,7 @@ import { ColorField, FileButton, Hint, Toggle } from '../ui';
 export function ColorPanel({ detectedNames }: { detectedNames: string[] }) {
   const { settings, patch, upsertCharacter, setSettings } = useStore();
   const roles = settings.roles;
+  const [newName, setNewName] = useState('');
 
   const known = new Set(Object.keys(settings.characters));
   const missing = detectedNames.filter((name) => !known.has(name));
@@ -43,9 +45,6 @@ export function ColorPanel({ detectedNames }: { detectedNames: string[] }) {
         onChange={(dialogueItalic) => patch('roles', { dialogueItalic })} />
       <Toggle label="강조 서술 기울임" checked={roles.emphasisItalic}
         onChange={(emphasisItalic) => patch('roles', { emphasisItalic })} />
-      <Toggle label="캐릭터 색을 대사에도 적용" checked={roles.perCharacterDialogue}
-        onChange={(perCharacterDialogue) => patch('roles', { perCharacterDialogue })} />
-
       <hr className="divider" />
 
       <div className="panel-head">
@@ -57,10 +56,36 @@ export function ColorPanel({ detectedNames }: { detectedNames: string[] }) {
         ) : null}
       </div>
 
+      <div className="button-row">
+        <input
+          type="text"
+          value={newName}
+          placeholder="캐릭터 이름 직접 추가"
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter' || !newName.trim()) return;
+            e.preventDefault();
+            upsertCharacter(newName.trim(), { color: roles.name });
+            setNewName('');
+          }}
+        />
+        <button
+          type="button"
+          className="mini-button"
+          disabled={!newName.trim()}
+          onClick={() => {
+            upsertCharacter(newName.trim(), { color: roles.name });
+            setNewName('');
+          }}
+        >
+          추가
+        </button>
+      </div>
+
       {Object.values(settings.characters).length === 0 ? (
         <Hint>
-          본문에 <code>이름: "대사"</code> 형태로 쓰면 캐릭터를 자동으로 찾아냅니다.
-          여기서 색과 프로필 이미지를 지정하면 메신저 테마에도 함께 반영됩니다.
+          본문에서 이름을 드래그해 팝업의 <strong>캐릭터</strong> 버튼으로 추가하거나, 위 칸에 직접 입력하세요.
+          본문에 <code>이름: "대사"</code> 형태로 쓰면 자동으로도 찾아냅니다.
         </Hint>
       ) : null}
 

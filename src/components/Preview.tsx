@@ -5,18 +5,14 @@ function escapeAttr(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-/** 캐릭터별 이름/대사 색상을 동적 CSS 규칙으로 만든다. */
+/** 캐릭터별 이름 색상을 동적 CSS 규칙으로 만든다. */
 function characterCss(settings: Settings): string {
   const { characters, roles } = settings;
   if (!roles.enabled) return '';
   return Object.values(characters)
     .map((character) => {
       const name = escapeAttr(character.name);
-      const rules = [`.te-capture [data-te-role="name"][data-te-speaker="${name}"]{color:${character.color};}`];
-      if (roles.perCharacterDialogue) {
-        rules.push(`.te-capture [data-te-role="dialogue"][data-te-speaker="${name}"]{color:${character.color};}`);
-      }
-      return rules.join('');
+      return `.te-capture [data-te-role="name"][data-te-speaker="${name}"]{color:var(--te-ink,${character.color});}`;
     })
     .join('');
 }
@@ -72,23 +68,47 @@ function backgroundLayer(settings: Settings): ReactNode {
   }
 }
 
-function MetaBlock({ settings }: { settings: Settings }) {
+/** 제목 + 부제목. 본문 서식(글꼴·자간·행간·장평)을 그대로 물려받는다. */
+function TitleBlock({ settings }: { settings: Settings }) {
   const { meta } = settings;
-  const visible = (meta.showTitle && meta.title) || (meta.showSubtitle && meta.subtitle) || (meta.showAuthor && meta.author);
+  const visible = (meta.showTitle && meta.title) || (meta.showSubtitle && meta.subtitle);
   if (!visible) return null;
 
+  const spacing = meta.position === 'top'
+    ? { marginBottom: `${meta.gap}px` }
+    : { marginTop: `${meta.gap}px` };
+
   return (
-    <div className={`meta-block meta-${meta.position}`} style={{ textAlign: meta.align, gap: `${Math.round(meta.gap / 4)}px` }}>
+    <div className="meta-block" style={{ textAlign: meta.align, gap: `${meta.innerGap}px`, ...spacing }}>
       {meta.showTitle && meta.title ? (
-        <div className="meta-title" style={{ fontSize: `${meta.titleSize}px`, color: meta.titleColor }}>{meta.title}</div>
+        <div className="meta-title" style={{ fontSize: `${meta.titleSize}px`, color: meta.titleColor }}>
+          {meta.title}
+        </div>
       ) : null}
       {meta.showSubtitle && meta.subtitle ? (
-        <div className="meta-subtitle" style={{ fontSize: `${meta.subtitleSize}px`, color: meta.subtitleColor }}>{meta.subtitle}</div>
+        <div className="meta-subtitle" style={{ fontSize: `${meta.subtitleSize}px`, color: meta.subtitleColor }}>
+          {meta.subtitle}
+        </div>
       ) : null}
-      {meta.showAuthor && meta.author ? (
-        <div className="meta-author" style={{ fontSize: `${meta.authorSize}px`, color: meta.authorColor }}>{meta.author}</div>
-      ) : null}
-      {meta.divider ? <div className="meta-divider" style={{ background: meta.subtitleColor, opacity: 0.35 }} /> : null}
+    </div>
+  );
+}
+
+/** 제작자는 언제나 본문 아래에 놓이고, 정렬을 따로 잡는다. */
+function AuthorBlock({ settings }: { settings: Settings }) {
+  const { meta } = settings;
+  if (!meta.showAuthor || !meta.author) return null;
+  return (
+    <div
+      className="meta-author"
+      style={{
+        fontSize: `${meta.authorSize}px`,
+        color: meta.authorColor,
+        textAlign: meta.authorAlign,
+        marginTop: `${meta.authorGap}px`,
+      }}
+    >
+      {meta.author}
     </div>
   );
 }
@@ -111,13 +131,14 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
       ? `${Math.round((layout.width * layout.ratioH) / layout.ratioW)}px`
       : undefined,
     borderRadius: `${layout.radius}px`,
-    // 역할 색상은 CSS 변수로 넘겨 다시 파싱하지 않고도 즉시 반영되게 한다.
+    // 역할 서식은 CSS 변수로 넘겨 다시 파싱하지 않고도 즉시 반영되게 한다.
     ['--te-narration' as string]: roles.narration,
     ['--te-dialogue' as string]: roles.dialogue,
     ['--te-name' as string]: roles.name,
     ['--te-emph' as string]: roles.emphasis,
     ['--te-emph-style' as string]: roles.emphasisItalic ? 'italic' : 'normal',
     ['--te-dialogue-style' as string]: roles.dialogueItalic ? 'italic' : 'normal',
+    ['--te-dialogue-size' as string]: `${typography.dialogueFontSize}px`,
     ['--te-paragraph-gap' as string]: `${typography.paragraphGap}px`,
   };
 
@@ -163,11 +184,15 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
       ) : null}
 
       <div className="te-content" style={contentStyle}>
-        {meta.position === 'top' ? <MetaBlock settings={settings} /> : null}
+        {/* 제목·제작자도 장평과 본문 서식을 함께 받도록 같은 래퍼 안에 둔다 */}
         <div className="te-scale" style={scaleStyle}>
-          <div className="te-type" style={typeStyle}>{children}</div>
+          <div className="te-type" style={typeStyle}>
+            {meta.position === 'top' ? <TitleBlock settings={settings} /> : null}
+            {children}
+            {meta.position === 'bottom' ? <TitleBlock settings={settings} /> : null}
+            <AuthorBlock settings={settings} />
+          </div>
         </div>
-        {meta.position === 'bottom' ? <MetaBlock settings={settings} /> : null}
       </div>
     </div>
   );
