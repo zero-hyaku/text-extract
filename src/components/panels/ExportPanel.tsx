@@ -171,7 +171,7 @@ export function ExportPanel({
           type="button"
           className="mini-button danger"
           onClick={() => {
-            if (!window.confirm('모든 서식을 지우고 기본값으로 되돌릴까요?\n\n사이드바 편집 옵션과 본문에 직접 준 서식(볼드·색·크기)이 모두 사라집니다.\n본문 글자는 그대로 남습니다.')) return;
+            if (!window.confirm('모든 서식을 지우고 기본값으로 되돌릴까요?\n\n패널 편집 옵션과 본문에 직접 준 서식(볼드·색·크기)이 모두 사라집니다.\n본문 글자는 그대로 남습니다.')) return;
             resetSettings();
             if (editorRoot) {
               stripAllFormatting(editorRoot);
@@ -188,7 +188,7 @@ export function ExportPanel({
           type="button"
           className="mini-button"
           onClick={() => {
-            if (!window.confirm('사이드바 편집 옵션만 기본값으로 되돌릴까요? 본문에 직접 준 서식은 남습니다.')) return;
+            if (!window.confirm('패널 편집 옵션만 기본값으로 되돌릴까요? 본문에 직접 준 서식은 남습니다.')) return;
             resetSettings();
             announce('편집 옵션을 되돌렸습니다.');
           }}

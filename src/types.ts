@@ -154,6 +154,8 @@ export interface Settings {
   /** 앱 화면(사이드바·작업 영역) 테마. 결과 이미지와는 무관하다. */
   appTheme: 'dark' | 'light';
   sidebarWidth: number;
+  /** 지금 열려 있는 도구 패널. null 이면 모두 닫힘 */
+  activePanel: string | null;
   theme: ThemeId;
   autoParse: boolean;
   /** 붙여넣을 때 빈 줄을 정리해 문단 간격만으로 띄우기 */

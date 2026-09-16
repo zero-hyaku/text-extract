@@ -29,6 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sidebarSide: 'left',
   appTheme: 'dark',
   sidebarWidth: 336,
+  activePanel: 'text',
   theme: 'plain',
   autoParse: true,
   tidyBlankLines: true,

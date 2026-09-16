@@ -9,7 +9,7 @@ export function ThemePanel() {
     <>
       {settings.theme !== 'messenger' ? (
         <Hint>
-          사이드바 맨 위에서 <strong>메신저</strong> 테마를 켜면 본문의 대사가 말풍선으로 바뀌고,
+          상단 막대에서 <strong>메신저</strong> 테마를 켜면 본문의 대사가 말풍선으로 바뀌고,
           캐릭터 프로필이 함께 표시됩니다.
         </Hint>
       ) : (

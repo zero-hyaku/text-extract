@@ -302,8 +302,8 @@ export function SelectionPopup({
           </div>
           <p className="popup-note">
             {scope === 'role'
-              ? '사이드바의 색상 설정과 함께 바뀝니다.'
-              : '이 영역에만 적용되며, 사이드바 색상보다 우선합니다.'}
+              ? '패널의 색상 설정과 함께 바뀝니다.'
+              : '이 영역에만 적용되며, 패널 색상보다 우선합니다.'}
           </p>
         </div>
       ) : null}

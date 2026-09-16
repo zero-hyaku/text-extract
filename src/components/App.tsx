@@ -6,11 +6,10 @@ import { useStore } from '../store';
 import { Editor, readPlainText } from './Editor';
 import { Preview } from './Preview';
 import { SelectionPopup } from './SelectionPopup';
-import { Sidebar } from './Sidebar';
+import { IconMoon, IconRedo, IconSun, IconUndo } from './icons';
+import { Workspace } from './Workspace';
 import { Stickers } from './Stickers';
 
-const MIN_SIDEBAR = 280;
-const MAX_SIDEBAR = 640;
 const ZOOM_STEPS = [0.25, 0.4, 0.5, 0.65, 0.8, 1, 1.25, 1.5, 2, 3];
 
 export function App() {
@@ -66,6 +65,17 @@ export function App() {
   const undo = useCallback(() => applySnapshot(history.undo()), [applySnapshot, history]);
   const redo = useCallback(() => applySnapshot(history.redo()), [applySnapshot, history]);
 
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'z') return;
+      event.preventDefault();
+      if (event.shiftKey) redo();
+      else undo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo]);
+
   // 설정이 바뀌어도 기록을 남긴다 (사이드바 서식까지 되돌리기 위함)
   useEffect(() => { recordHistory(); }, [settings, recordHistory]);
   useEffect(() => () => window.clearTimeout(pushTimer.current), []);
@@ -100,24 +110,6 @@ export function App() {
     setPreviewHeight(captureNode.offsetHeight);
     return () => observer.disconnect();
   }, [captureNode]);
-
-  /* 사이드바 폭 드래그 */
-  const dragging = useRef(false);
-  const startResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    dragging.current = true;
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const onResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragging.current) return;
-    const next = settings.sidebarSide === 'left'
-      ? event.clientX
-      : window.innerWidth - event.clientX;
-    set('sidebarWidth', Math.round(Math.min(MAX_SIDEBAR, Math.max(MIN_SIDEBAR, next))));
-  };
-  const endResize = (event: React.PointerEvent<HTMLDivElement>) => {
-    dragging.current = false;
-    event.currentTarget.releasePointerCapture(event.pointerId);
-  };
 
   /* 미리보기 확대·축소 */
   const zoom = settings.previewZoom;
@@ -160,112 +152,144 @@ export function App() {
 
   return (
     <div
-      className={`app layout-${settings.sidebarSide}`}
+      className={`app tools-${settings.sidebarSide}`}
       data-app-theme={settings.appTheme}
-      style={{ ['--sidebar-width' as string]: `${settings.sidebarWidth}px` }}
     >
-      <Sidebar
-        editorRoot={editorRoot}
-        captureNode={captureNode}
-        detectedNames={detectedNames}
-        onUndo={undo}
-        onRedo={redo}
-        canUndo={historyState.undo}
-        canRedo={historyState.redo}
-      />
+      <header className="topbar">
+        <span className="brand">텍스트 발췌기</span>
 
-      <div
-        className="sidebar-resizer"
-        role="separator"
-        aria-orientation="vertical"
-        aria-label="사이드바 너비 조절"
-        onPointerDown={startResize}
-        onPointerMove={onResize}
-        onPointerUp={endResize}
-        onPointerCancel={endResize}
-        onDoubleClick={() => set('sidebarWidth', 336)}
-      />
-
-      <main className="stage">
-        {/* 스크롤은 안쪽에서만 일어나게 해, 확대 막대를 작업 영역 하단에 붙여 둔다 */}
-        <div className="stage-scroll" ref={setStageNode}>
-          <div className="stage-inner">
-            {/* 확대해도 스크롤 범위가 맞도록 배율만큼 자리를 잡아 둔다 */}
-            <div
-              className="zoom-frame"
-              style={{
-                width: settings.layout.width * zoom,
-                height: previewHeight > 0 ? previewHeight * zoom : undefined,
-                ['--preview-zoom' as string]: String(zoom),
-              }}
-              onPointerDown={(event) => {
-                if (!(event.target as HTMLElement).closest('.sticker')) setSelectedSticker(null);
-              }}
+        {/* 테마는 결과물을 통째로 바꾸는 선택이라 가장 잘 보이는 자리에 둔다 */}
+        <div className="theme-switch" role="group" aria-label="테마">
+          {([['plain', '기본'], ['messenger', '메신저']] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={settings.theme === value ? 'is-active' : ''}
+              aria-pressed={settings.theme === value}
+              onClick={() => set('theme', value)}
             >
-              <div className="zoom-inner" style={{ transform: `scale(${zoom})` }}>
-                <Preview settings={settings} captureRef={setCaptureNode}>
-                  {/* 메신저는 같은 본문을 말풍선 모양으로 보여줄 뿐이라 에디터는 늘 같은 것을 쓴다 */}
-                  <div className="editor-wrap">
-                    <Editor
-                      initialContent={liveHtml.current}
-                      autoParse={settings.autoParse}
-                      tidyBlankLines={settings.tidyBlankLines}
-                      onRootChange={(node) => { editorRootRef.current = node; setEditorRoot(node); }}
-                      onTextChange={setPlainText}
-                      onHtmlChange={handleHtmlChange}
-                    />
-                    {isEmpty ? (
-                      <p className="editor-placeholder" data-export-ignore="true">
-                        여기에 본문을 붙여넣거나 바로 입력하세요.
-                      </p>
-                    ) : null}
-                  </div>
-                  <Stickers zoom={zoom} />
-                </Preview>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="topbar-right">
+          <span className="topbar-hint">
+            {isMessenger ? '대사가 말풍선으로 보입니다' : '미리보기에 바로 입력하세요'}
+          </span>
+
+          <div className="topbar-tools">
+            <button
+              type="button"
+              className="top-button"
+              title="되돌리기 (Ctrl+Z)"
+              disabled={!historyState.undo}
+              onClick={undo}
+            >
+              <IconUndo />
+            </button>
+            <button
+              type="button"
+              className="top-button"
+              title="다시 실행 (Ctrl+Shift+Z)"
+              disabled={!historyState.redo}
+              onClick={redo}
+            >
+              <IconRedo />
+            </button>
+            <span className="top-sep" />
+            <button
+              type="button"
+              className="top-button"
+              title={settings.appTheme === 'dark' ? '라이트 모드로' : '다크 모드로'}
+              onClick={() => set('appTheme', settings.appTheme === 'dark' ? 'light' : 'dark')}
+            >
+              {settings.appTheme === 'dark' ? <IconSun /> : <IconMoon />}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="workarea">
+        <Workspace
+          editorRoot={editorRoot}
+          captureNode={captureNode}
+          detectedNames={detectedNames}
+        />
+
+        <main className="stage">
+          {/* 스크롤은 안쪽에서만 일어나게 해, 확대 막대를 작업 영역 하단에 붙여 둔다 */}
+          <div className="stage-scroll" ref={setStageNode}>
+            <div className="stage-inner">
+              {/* 확대해도 스크롤 범위가 맞도록 배율만큼 자리를 잡아 둔다 */}
+              <div
+                className="zoom-frame"
+                style={{
+                  width: settings.layout.width * zoom,
+                  height: previewHeight > 0 ? previewHeight * zoom : undefined,
+                  ['--preview-zoom' as string]: String(zoom),
+                }}
+                onPointerDown={(event) => {
+                  if (!(event.target as HTMLElement).closest('.sticker')) setSelectedSticker(null);
+                }}
+              >
+                <div className="zoom-inner" style={{ transform: `scale(${zoom})` }}>
+                  <Preview settings={settings} captureRef={setCaptureNode}>
+                    {/* 메신저는 같은 본문을 말풍선 모양으로 보여줄 뿐이라 에디터는 늘 같은 것을 쓴다 */}
+                    <div className="editor-wrap">
+                      <Editor
+                        initialContent={liveHtml.current}
+                        autoParse={settings.autoParse}
+                        tidyBlankLines={settings.tidyBlankLines}
+                        onRootChange={(node) => { editorRootRef.current = node; setEditorRoot(node); }}
+                        onTextChange={setPlainText}
+                        onHtmlChange={handleHtmlChange}
+                      />
+                      {isEmpty ? (
+                        <p className="editor-placeholder" data-export-ignore="true">
+                          여기에 본문을 붙여넣거나 바로 입력하세요.
+                        </p>
+                      ) : null}
+                    </div>
+                    <Stickers zoom={zoom} />
+                  </Preview>
+                </div>
               </div>
+
+              {/* 처음 열었을 때만 보이는 사용법 — 결과물에는 들어가지 않는다 */}
+              {isEmpty ? (
+                <ul className="start-tips" data-export-ignore="true">
+                  <li><code>이름: "대사"</code> 로 쓰면 이름과 대사를 알아서 구분합니다</li>
+                  <li><code>*강조*</code> 는 강조 서술이 되고, 별표는 결과물에서 감춰집니다</li>
+                  <li>글자를 드래그하면 색·크기·말풍선을 바꾸는 창이 열립니다</li>
+                </ul>
+              ) : null}
             </div>
-
-            <p className="stage-caption" data-export-ignore="true">
-              {isMessenger
-                ? '메신저 테마 — 대사만 말풍선 모양으로 보이며, 편집과 서식은 그대로 씁니다.'
-                : '미리보기 영역에 직접 입력·붙여넣기 하고, 텍스트를 드래그하면 편집 팝업이 열립니다.'}
-            </p>
-
-            {/* 처음 열었을 때만 보이는 사용법 — 결과물에는 들어가지 않는다 */}
-            {isEmpty ? (
-              <ul className="start-tips" data-export-ignore="true">
-                <li><code>이름: "대사"</code> 로 쓰면 이름과 대사를 알아서 구분합니다</li>
-                <li><code>*강조*</code> 는 강조 서술이 되고, 별표는 결과물에서 감춰집니다</li>
-                <li>글자를 드래그하면 색·크기·말풍선을 바꾸는 창이 열립니다</li>
-              </ul>
-            ) : null}
           </div>
-        </div>
 
-        <div className="zoom-bar" data-export-ignore="true">
-          <button type="button" onClick={() => stepZoom(-1)} title="축소" disabled={zoom <= ZOOM_STEPS[0]}>−</button>
-          <span className="zoom-value">{Math.round(zoom * 100)}%</span>
-          <button type="button" onClick={() => stepZoom(1)} title="확대" disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}>+</button>
-          <span className="zoom-sep" />
-          <button
-            type="button"
-            onClick={() => { userSetZoom.current = true; set('previewZoom', 1); }}
-          >
-            100%
-          </button>
-          <button type="button" onClick={() => { userSetZoom.current = false; zoomToFit(); }}>
-            화면 맞춤
-          </button>
-        </div>
-
-        <SelectionPopup editorRoot={editorRoot} boundary={stageNode} zoom={zoom} />
-
-        {saveError ? (
-          <div className="save-warning" role="alert">
-            {saveError}
+          <div className="zoom-bar" data-export-ignore="true">
+            <button type="button" onClick={() => stepZoom(-1)} title="축소" disabled={zoom <= ZOOM_STEPS[0]}>−</button>
+            <span className="zoom-value">{Math.round(zoom * 100)}%</span>
+            <button type="button" onClick={() => stepZoom(1)} title="확대" disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}>+</button>
+            <span className="zoom-sep" />
+            <button
+              type="button"
+              onClick={() => { userSetZoom.current = true; set('previewZoom', 1); }}
+            >
+              100%
+            </button>
+            <button type="button" onClick={() => { userSetZoom.current = false; zoomToFit(); }}>
+              화면 맞춤
+            </button>
           </div>
-        ) : null}
-      </main>
+
+          <SelectionPopup editorRoot={editorRoot} boundary={stageNode} zoom={zoom} />
+
+          {saveError ? (
+            <div className="save-warning" role="alert">{saveError}</div>
+          ) : null}
+        </main>
+      </div>
     </div>
   );
 }

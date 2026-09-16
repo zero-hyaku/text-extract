@@ -103,7 +103,7 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
         </div>
       </Field>
 
-      <Field label="선택 영역 글자 색" hint="사이드바 색상보다 우선">
+      <Field label="선택 영역 글자 색" hint="패널 색상보다 우선">
         <div className="swatch-row" onMouseDown={(e) => e.preventDefault()}>
           {['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8', '#8b5a2b', '#8a8a95'].map((color) => (
             <button

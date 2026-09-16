@@ -1,20 +1,4 @@
-import { useId, useState, type ReactNode } from 'react';
-
-export function Section({
-  title, children, defaultOpen = false, badge,
-}: { title: string; children: ReactNode; defaultOpen?: boolean; badge?: string }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <section className={`section ${open ? 'is-open' : ''}`}>
-      <button type="button" className="section-head" onClick={() => setOpen((v) => !v)}>
-        <span className="section-caret" aria-hidden>{open ? '▾' : '▸'}</span>
-        <span className="section-title">{title}</span>
-        {badge ? <span className="section-badge">{badge}</span> : null}
-      </button>
-      {open ? <div className="section-body">{children}</div> : null}
-    </section>
-  );
-}
+import { useId, type ReactNode } from 'react';
 
 export function Field({
   label, hint, children, variant,
