@@ -64,12 +64,16 @@ interface StoreValue {
   /** 에디터 초기 내용 (마운트 시 1회 주입) */
   initialContent: string;
   saveContent: (html: string) => void;
+  /** 배경 이미지 위치를 드래그로 조절하는 중인지 (저장하지 않음) */
+  adjustingImage: boolean;
+  setAdjustingImage: (value: boolean) => void;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [settings, setSettingsState] = useState<Settings>(readStoredSettings);
+  const [adjustingImage, setAdjustingImage] = useState(false);
   const initialContent = useRef(readStoredContent()).current;
 
   useEffect(() => {
@@ -127,10 +131,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<StoreValue>(
     () => ({
       settings, setSettings, patch, set, replaceSettings, resetSettings,
-      upsertCharacter, initialContent, saveContent,
+      upsertCharacter, initialContent, saveContent, adjustingImage, setAdjustingImage,
     }),
     [settings, setSettings, patch, set, replaceSettings, resetSettings,
-     upsertCharacter, initialContent, saveContent],
+     upsertCharacter, initialContent, saveContent, adjustingImage],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

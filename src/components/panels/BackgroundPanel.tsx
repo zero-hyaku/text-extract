@@ -1,10 +1,10 @@
 import { readFileAsDataUrl } from '../../lib/exporters';
 import { useStore } from '../../store';
-import { ButtonGroup, ColorField, FileButton, Hint, NumberSlider, Select, TextInput } from '../ui';
+import { ButtonGroup, ColorField, Field, FileButton, Hint, NumberSlider, Select, TextInput } from '../ui';
 import type { BackgroundType } from '../../types';
 
 export function BackgroundPanel() {
-  const { settings, patch } = useStore();
+  const { settings, patch, adjustingImage, setAdjustingImage } = useStore();
   const bg = settings.background;
 
   return (
@@ -62,6 +62,35 @@ export function BackgroundPanel() {
             onChange={(imageFit) => patch('background', { imageFit })}
           />
           <ColorField label="여백 색" value={bg.color} onChange={(color) => patch('background', { color })} />
+
+          <Field label="이미지 위치">
+            <div className="button-row">
+              <button
+                type="button"
+                className={adjustingImage ? 'primary-button' : 'mini-button'}
+                disabled={!bg.imageUrl}
+                onClick={() => setAdjustingImage(!adjustingImage)}
+              >
+                {adjustingImage ? '위치 조절 끝내기' : '드래그로 위치 조절'}
+              </button>
+              <button
+                type="button"
+                className="mini-button"
+                disabled={!bg.imageUrl}
+                onClick={() => patch('background', { imageX: 50, imageY: 50 })}
+              >
+                가운데로
+              </button>
+            </div>
+          </Field>
+          {adjustingImage ? (
+            <Hint>미리보기를 드래그해 이미지를 옮기세요. 조절하는 동안에는 본문을 편집할 수 없습니다.</Hint>
+          ) : null}
+          <NumberSlider label="가로 위치" value={Math.round(bg.imageX)} min={0} max={100} unit="%"
+            onChange={(imageX) => patch('background', { imageX })} />
+          <NumberSlider label="세로 위치" value={Math.round(bg.imageY)} min={0} max={100} unit="%"
+            onChange={(imageY) => patch('background', { imageY })} />
+
           <Hint>GIF 는 미리보기에서 움직이지만, 이미지·PDF 로 저장하면 한 장면으로 고정됩니다.</Hint>
         </>
       ) : null}

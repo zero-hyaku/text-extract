@@ -15,7 +15,22 @@
   color-scheme: dark;
 }
 
+/* 앱 화면 테마 — 결과 이미지 색과는 무관하다 */
+.app[data-app-theme='light'] {
+  --ui-bg: #ffffff;
+  --ui-panel: #f4f5f8;
+  --ui-panel-2: #eaecf1;
+  --ui-line: #dde0e7;
+  --ui-text: #1f2128;
+  --ui-dim: #6b7280;
+  --ui-accent: #3b6ef5;
+  --ui-danger: #cf4444;
+  --stage-bg: #e9ebef;
+  color-scheme: light;
+}
+
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html, body, #root { height: 100%; }
 
@@ -43,23 +58,39 @@ body {
   background: var(--ui-bg);
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--ui-line);
-}
-.app.layout-right .sidebar {
-  border-right: none;
-  border-left: 1px solid var(--ui-line);
+  min-width: 0;
 }
 
 .sidebar-head {
   padding: 16px 18px 12px;
   border-bottom: 1px solid var(--ui-line);
 }
+.sidebar-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
 .sidebar-head h1 {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
+.icon-button {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--ui-dim);
+  background: var(--ui-panel);
+  border: 1px solid var(--ui-line);
+  border-radius: 7px;
+  cursor: pointer;
+}
+.icon-button:hover { color: var(--ui-text); border-color: var(--ui-accent); }
 .side-switch {
   width: 100%;
   padding: 7px 10px;
@@ -80,6 +111,20 @@ body {
   flex-direction: column;
   gap: 10px;
 }
+
+.sidebar-resizer {
+  flex: 0 0 6px;
+  cursor: col-resize;
+  background: var(--ui-line);
+  position: relative;
+  touch-action: none;
+}
+.sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  inset: 0 -3px;
+}
+.sidebar-resizer:hover { background: var(--ui-accent); }
 
 .stage {
   flex: 1;
@@ -115,7 +160,7 @@ body {
   position: relative;
   overflow: hidden;
   flex: 0 0 auto;
-  box-shadow: 0 10px 40px rgba(20, 22, 30, 0.18);
+  box-shadow: 0 10px 40px rgba(20, 22, 30, 0.16);
 }
 .bg-layer { position: absolute; z-index: 0; }
 .bg-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
@@ -161,9 +206,38 @@ body {
   font-style: var(--te-emph-style, italic);
 }
 .te-name { color: var(--te-ink, var(--te-name)); font-size: var(--te-size, inherit); font-weight: 600; }
+.te-mark { color: var(--te-ink, var(--te-emph)); font-size: var(--te-size, inherit); }
+/* 별표는 자리까지 없애야 결과물이 깔끔하다 */
+.te-capture.hide-marks .te-mark { display: none; }
+
+.bg-drag {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  cursor: grab;
+  touch-action: none;
+  box-shadow: inset 0 0 0 2px var(--ui-accent);
+}
+.bg-drag:active { cursor: grabbing; }
+.bg-drag-badge {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 11px;
+  font-family: 'Pretendard Variable', Pretendard, sans-serif;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #fff;
+  background: rgba(20, 22, 30, 0.82);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
 .roles-off .te-dialogue,
 .roles-off .te-narration,
 .roles-off .te-emph,
+.roles-off .te-mark,
 .roles-off .te-name {
   color: inherit;
   font-style: normal;
@@ -589,13 +663,12 @@ textarea { resize: vertical; line-height: 1.5; }
 @media (max-width: 900px) {
   .app, .app.layout-right { flex-direction: column; }
   .sidebar {
-    width: 100%;
+    width: 100% !important;
     flex: 0 0 auto;
     max-height: 48vh;
-    border-right: none;
     border-bottom: 1px solid var(--ui-line);
   }
-  .app.layout-right .sidebar { border-left: none; }
+  .sidebar-resizer { display: none; }
   .stage-inner { padding: 20px 14px 40px; }
   .te-capture { max-width: 100%; }
 }

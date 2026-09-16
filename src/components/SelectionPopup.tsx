@@ -22,6 +22,7 @@ const ROLE_LABEL: Record<Role, string> = {
   narration: '서술',
   name: '이름',
   emph: '강조 서술',
+  mark: '강조 서술',
 };
 
 const TEXT_SWATCHES = ['#2b2b33', '#8b1e1e', '#1f4f8b', '#1e6b4a', '#7a4fa8', '#8b5a2b', '#8a8a95'];
@@ -88,7 +89,7 @@ export function SelectionPopup({
     }
     if (role === 'dialogue') patch('roles', { dialogue: color });
     else if (role === 'name') patch('roles', { name: color });
-    else if (role === 'emph') patch('roles', { emphasis: color });
+    else if (role === 'emph' || role === 'mark') patch('roles', { emphasis: color });
     else patch('roles', { narration: color });
   };
 

@@ -27,9 +27,12 @@ export const HIGHLIGHT_SWATCHES = [
 
 export const DEFAULT_SETTINGS: Settings = {
   sidebarSide: 'left',
+  appTheme: 'dark',
+  sidebarWidth: 336,
   theme: 'plain',
   autoParse: true,
   tidyBlankLines: true,
+  hideEmphasisMarks: true,
   typography: {
     fontFamily: "'Pretendard Variable', Pretendard, sans-serif",
     fontWeight: 400,
@@ -60,6 +63,8 @@ export const DEFAULT_SETTINGS: Settings = {
     gradientAngle: 160,
     imageUrl: '',
     imageFit: 'cover',
+    imageX: 50,
+    imageY: 50,
     videoUrl: '',
     overlayColor: '#000000',
     overlayOpacity: 0,
@@ -120,10 +125,5 @@ export const DEFAULT_SETTINGS: Settings = {
   },
 };
 
-export const SAMPLE_CONTENT = `창밖으로 빗줄기가 길게 늘어졌다. 오래 비워둔 방에서는 종이 냄새가 났다.
-
-세인: "아직 여기 있었네."
-
-*그는 문턱에 선 채로 한참을 망설였다.*
-
-"들어와도 돼." 나는 책을 덮으며 말했다. "어차피 오늘은 아무것도 못 읽었으니까."`;
+/** 미리보기는 빈 상태로 시작한다. */
+export const SAMPLE_CONTENT = '';

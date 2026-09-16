@@ -50,13 +50,20 @@ export function Editor({
     onHtmlChange(root.innerHTML);
   }, [onTextChange, onHtmlChange]);
 
+  /** 타이핑 즉시 HTML 만 알린다 — 테마를 바꿔 언마운트돼도 내용이 남도록. */
+  const publishHtml = useCallback(() => {
+    const root = rootRef.current;
+    if (root) onHtmlChange(root.innerHTML);
+  }, [onHtmlChange]);
+
   const scheduleWork = useCallback(() => {
+    publishHtml();
     window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => {
       if (autoParse) remark();
       publish();
     }, 400);
-  }, [autoParse, remark, publish]);
+  }, [autoParse, remark, publish, publishHtml]);
 
   // 최초 1회만 내용을 주입한다. 이후로는 DOM 이 원본이다.
   useEffect(() => {

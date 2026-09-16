@@ -1,4 +1,5 @@
-import { useMemo, type CSSProperties, type ReactNode } from 'react';
+import { useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useStore } from '../store';
 import type { Settings } from '../types';
 
 function escapeAttr(value: string): string {
@@ -45,7 +46,7 @@ function backgroundLayer(settings: Settings): ReactNode {
             backgroundImage: `url("${bg.imageUrl}")`,
             backgroundSize: bg.imageFit === 'repeat' ? 'auto' : bg.imageFit,
             backgroundRepeat: bg.imageFit === 'repeat' ? 'repeat' : 'no-repeat',
-            backgroundPosition: 'center',
+            backgroundPosition: `${bg.imageX}% ${bg.imageY}%`,
           }}
         />
       );
@@ -121,9 +122,13 @@ interface PreviewProps {
 
 export function Preview({ settings, captureRef, children }: PreviewProps) {
   const { layout, typography, roles, background, meta } = settings;
+  const { patch, adjustingImage } = useStore();
   const scale = typography.horizontalScale;
+  const drag = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
   const css = useMemo(() => characterCss(settings), [settings]);
+
+  const canAdjust = adjustingImage && background.type === 'image' && Boolean(background.imageUrl);
 
   const frameStyle: CSSProperties = {
     width: `${layout.width}px`,
@@ -171,11 +176,47 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
   return (
     <div
       ref={captureRef}
-      className={`te-capture ${roles.enabled ? '' : 'roles-off'}`}
+      className={[
+        'te-capture',
+        roles.enabled ? '' : 'roles-off',
+        settings.hideEmphasisMarks ? 'hide-marks' : '',
+      ].filter(Boolean).join(' ')}
       style={frameStyle}
     >
       {css ? <style>{css}</style> : null}
       {backgroundLayer(settings)}
+      {canAdjust ? (
+        <div
+          className="bg-drag"
+          data-export-ignore="true"
+          title="드래그해서 배경 이미지 위치를 옮기세요"
+          onPointerDown={(event) => {
+            const box = event.currentTarget.getBoundingClientRect();
+            drag.current = { x: event.clientX, y: event.clientY, w: box.width, h: box.height };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            const start = drag.current;
+            if (!start) return;
+            // background-position 은 값이 커질수록 이미지가 왼쪽·위로 간다.
+            // 끄는 방향과 이미지가 같이 움직이도록 부호를 뒤집는다.
+            const dx = ((event.clientX - start.x) / start.w) * 100;
+            const dy = ((event.clientY - start.y) / start.h) * 100;
+            drag.current = { ...start, x: event.clientX, y: event.clientY };
+            patch('background', {
+              imageX: Math.min(100, Math.max(0, background.imageX - dx)),
+              imageY: Math.min(100, Math.max(0, background.imageY - dy)),
+            });
+          }}
+          onPointerUp={(event) => {
+            drag.current = null;
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }}
+          onPointerCancel={() => { drag.current = null; }}
+        >
+          <span className="bg-drag-badge">배경 위치 조절 중 — 드래그하세요</span>
+        </div>
+      ) : null}
       {background.overlayOpacity > 0 ? (
         <div
           className="bg-overlay"

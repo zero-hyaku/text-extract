@@ -20,7 +20,17 @@ export function Sidebar({ editorRoot, captureNode, detectedNames }: SidebarProps
   return (
     <aside className={`sidebar side-${settings.sidebarSide}`}>
       <header className="sidebar-head">
-        <h1>텍스트 발췌기</h1>
+        <div className="sidebar-title">
+          <h1>텍스트 발췌기</h1>
+          <button
+            type="button"
+            className="icon-button"
+            title={settings.appTheme === 'dark' ? '라이트 모드로' : '다크 모드로'}
+            onClick={() => set('appTheme', settings.appTheme === 'dark' ? 'light' : 'dark')}
+          >
+            {settings.appTheme === 'dark' ? '☀' : '☾'}
+          </button>
+        </div>
         <button
           type="button"
           className="side-switch"
@@ -37,6 +47,12 @@ export function Sidebar({ editorRoot, captureNode, detectedNames }: SidebarProps
             label="입력하는 동안 대사 자동 인식"
             checked={settings.autoParse}
             onChange={(autoParse) => set('autoParse', autoParse)}
+          />
+          <Toggle
+            label="결과물에서 * 기호 감추기"
+            checked={settings.hideEmphasisMarks}
+            onChange={(hideEmphasisMarks) => set('hideEmphasisMarks', hideEmphasisMarks)}
+            hint="강조 서식은 그대로 두고 별표만 숨깁니다"
           />
           <Toggle
             label="붙여넣을 때 빈 줄 정리"

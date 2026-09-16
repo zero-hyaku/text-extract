@@ -6,7 +6,7 @@
  *  - 줄 머리의 `이름:` 은 캐릭터 이름으로 본다.
  */
 
-export const ROLE_CLASSES = ['te-dialogue', 'te-narration', 'te-emph', 'te-name'] as const;
+export const ROLE_CLASSES = ['te-dialogue', 'te-narration', 'te-emph', 'te-name', 'te-mark'] as const;
 
 const OPEN_QUOTES: Record<string, string> = {
   '"': '"',
@@ -20,7 +20,7 @@ const CLOSE_ONLY = new Set(['\u201D', '\u300D', '\u300F']);
 /** 줄 머리 캐릭터 이름: `세인:` / `세인 :` — 이름은 20자 이내, 따옴표를 포함하지 않는다 */
 const NAME_RE = /^([^\n:："'“”]{1,20})\s*[:：]/;
 
-export type Role = 'dialogue' | 'narration' | 'emph' | 'name';
+export type Role = 'dialogue' | 'narration' | 'emph' | 'name' | 'mark';
 
 interface Piece {
   text: string;
@@ -100,18 +100,33 @@ export function scanText(text: string, state: ScanState): Piece[] {
     }
 
     if (ch === '*') {
-      const isDouble = text[index + 1] === '*';
-      const marker = isDouble ? '**' : '*';
-      if (state.emph) {
-        buffer += marker;
-        state.emph = false;
+      const marker = text[index + 1] === '*' ? '**' : '*';
+
+      // 기호 자체를 따로 떼어내면 출력에서 이것만 감출 수 있다.
+      const takeMarker = () => {
         flush();
+        pieces.push({ text: marker, role: 'mark', speaker: state.speaker });
+        index += marker.length;
+      };
+
+      if (state.emph) {
+        takeMarker();
+        state.emph = false;
         bufferRole = 'narration';
-      } else {
-        switchTo('emph');
-        buffer += marker;
-        state.emph = true;
+        continue;
       }
+
+      // 닫는 짝이 같은 줄에 있을 때만 강조로 본다.
+      // 그래야 사용자가 여는 기호를 막 입력했을 때 글자가 사라지지 않는다.
+      if (text.slice(index + marker.length).includes(marker)) {
+        takeMarker();
+        state.emph = true;
+        bufferRole = 'emph';
+        continue;
+      }
+
+      switchTo('narration');
+      buffer += marker;
       index += marker.length;
       continue;
     }
@@ -140,6 +155,7 @@ const CLASS_BY_ROLE: Record<Role, string> = {
   narration: 'te-narration',
   emph: 'te-emph',
   name: 'te-name',
+  mark: 'te-mark',
 };
 
 /**

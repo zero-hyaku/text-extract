@@ -44,6 +44,9 @@ export interface Background {
   /** data: URL 또는 외부 주소 (gif 포함) */
   imageUrl: string;
   imageFit: 'cover' | 'contain' | 'repeat';
+  /** 배경 이미지 위치 (%) — 드래그로 조절한다 */
+  imageX: number;
+  imageY: number;
   videoUrl: string;
   overlayColor: string;
   overlayOpacity: number;
@@ -121,10 +124,15 @@ export interface ExportOptions {
 
 export interface Settings {
   sidebarSide: SidebarSide;
+  /** 앱 화면(사이드바·작업 영역) 테마. 결과 이미지와는 무관하다. */
+  appTheme: 'dark' | 'light';
+  sidebarWidth: number;
   theme: ThemeId;
   autoParse: boolean;
   /** 붙여넣을 때 빈 줄을 정리해 문단 간격만으로 띄우기 */
   tidyBlankLines: boolean;
+  /** 결과물에서 *…* 의 별표를 감춘다 (강조 서식은 그대로) */
+  hideEmphasisMarks: boolean;
   typography: Typography;
   roles: RoleColors;
   background: Background;
