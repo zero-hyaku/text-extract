@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { installAllFonts } from '../lib/fonts';
 import { collectCharacters } from '../lib/parse';
 import { useStore } from '../store';
 import { Editor } from './Editor';
@@ -33,6 +34,9 @@ export function App() {
   }, [saveContent]);
 
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
+
+  // 저장해 둔 사용자 글꼴을 문서에 다시 심는다.
+  useEffect(() => { void installAllFonts(settings.customFonts); }, [settings.customFonts]);
 
   /* 사이드바 폭 드래그 */
   const dragging = useRef(false);

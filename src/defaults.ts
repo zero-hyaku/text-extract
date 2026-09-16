@@ -54,6 +54,7 @@ export const DEFAULT_SETTINGS: Settings = {
     emphasis: '#6b6b76',
     emphasisItalic: true,
     dialogueItalic: false,
+    barColor: '#e0a340',
   },
   background: {
     type: 'solid',
@@ -63,6 +64,7 @@ export const DEFAULT_SETTINGS: Settings = {
     gradientAngle: 160,
     imageUrl: '',
     imageFit: 'cover',
+    imageScale: 100,
     imageX: 50,
     imageY: 50,
     videoUrl: '',
@@ -117,6 +119,7 @@ export const DEFAULT_SETTINGS: Settings = {
     narrationStyle: 'muted',
   },
   characters: {},
+  customFonts: [],
   exportOptions: {
     format: 'png',
     scale: 2,

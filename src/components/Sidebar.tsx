@@ -1,5 +1,5 @@
 import { useStore } from '../store';
-import { Section, Toggle } from './ui';
+import { ButtonGroup, Section, Toggle } from './ui';
 import { TextPanel } from './panels/TextPanel';
 import { ColorPanel } from './panels/ColorPanel';
 import { BackgroundPanel } from './panels/BackgroundPanel';
@@ -43,6 +43,15 @@ export function Sidebar({ editorRoot, captureNode, detectedNames }: SidebarProps
 
       <div className="sidebar-scroll">
         <div className="sidebar-top">
+          <ButtonGroup
+            label="테마"
+            value={settings.theme}
+            options={[
+              { label: '기본', value: 'plain' as const },
+              { label: '메신저', value: 'messenger' as const },
+            ]}
+            onChange={(theme) => set('theme', theme)}
+          />
           <Toggle
             label="입력하는 동안 대사 자동 인식"
             checked={settings.autoParse}
@@ -77,7 +86,7 @@ export function Sidebar({ editorRoot, captureNode, detectedNames }: SidebarProps
         <Section title="제목 / 제작자">
           <MetaPanel />
         </Section>
-        <Section title="테마">
+        <Section title="메신저 테마 설정">
           <ThemePanel />
         </Section>
         <Section title="저장 / 내보내기" defaultOpen>

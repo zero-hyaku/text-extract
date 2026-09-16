@@ -111,7 +111,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const upsertCharacter = useCallback((name: string, value: Partial<CharacterStyle>) => {
     setSettingsState((prev) => {
       const existing = prev.characters[name] ?? {
-        name, color: prev.roles.name, avatar: '', isMe: false,
+        name, color: prev.roles.name, dialogueColor: '', avatar: '', isMe: false,
       };
       return {
         ...prev,

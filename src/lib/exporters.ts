@@ -50,6 +50,64 @@ async function withPreparedNode<T>(node: HTMLElement, run: () => Promise<T>): Pr
   }
 }
 
+/**
+ * 페이지 나눔선을 기준으로 본문을 쪼개, 페이지마다 한 장씩 담아낸다.
+ * 나눔선이 없으면 통째로 한 장이다.
+ *
+ * 줄마다 display 를 직접 껐다 켜므로, 캡처가 끝나면 반드시 되돌려야 한다.
+ */
+function paginate(capture: HTMLElement): { pages: number; show: (page: number) => void; restore: () => void } {
+  const editor = capture.querySelector<HTMLElement>('.editor');
+  if (!editor) return { pages: 1, show: () => {}, restore: () => {} };
+
+  if (!editor.querySelector('[data-te-page-break]')) {
+    return { pages: 1, show: () => {}, restore: () => {} };
+  }
+
+  // contenteditable 은 첫 줄을 <div> 로 감싸지 않는 경우가 있다.
+  // 맨 위 텍스트 노드를 임시 span 으로 싸 두어야 페이지별로 숨길 수 있다.
+  const temps: HTMLElement[] = [];
+  [...editor.childNodes].forEach((node) => {
+    if (node.nodeType !== Node.TEXT_NODE || !node.textContent?.trim()) return;
+    const wrapper = document.createElement('span');
+    wrapper.dataset.teTemp = 'true';
+    node.parentNode?.insertBefore(wrapper, node);
+    wrapper.appendChild(node);
+    temps.push(wrapper);
+  });
+
+  const blocks = [...editor.children] as HTMLElement[];
+  const previous = blocks.map((el) => el.style.display);
+  const pageOf = new Map<HTMLElement, number>();
+  let page = 0;
+  for (const block of blocks) {
+    if (block.dataset.tePageBreak === 'true') {
+      page += 1;
+      continue;
+    }
+    pageOf.set(block, page);
+  }
+
+  return {
+    pages: page + 1,
+    show: (target: number) => {
+      blocks.forEach((block) => {
+        block.style.display = pageOf.get(block) === target ? '' : 'none';
+      });
+    },
+    restore: () => {
+      blocks.forEach((block, index) => { block.style.display = previous[index]; });
+      temps.forEach((wrapper) => {
+        const parent = wrapper.parentNode;
+        if (!parent) return;
+        while (wrapper.firstChild) parent.insertBefore(wrapper.firstChild, wrapper);
+        parent.removeChild(wrapper);
+      });
+      editor.normalize();
+    },
+  };
+}
+
 function triggerDownload(url: string, fileName: string) {
   const link = document.createElement('a');
   link.href = url;
@@ -69,42 +127,66 @@ export async function exportNode(node: HTMLElement, options: ExportOptions): Pro
   const base = safeName(fileName);
 
   await withPreparedNode(node, async () => {
-    const shared = {
-      pixelRatio: scale,
-      cacheBust: true,
-      filter: exportFilter,
-      width: node.offsetWidth,
-      height: node.offsetHeight,
+    const pager = paginate(node);
+    const suffix = (page: number) => (pager.pages > 1 ? `-${page + 1}` : '');
+
+    const shot = async (type: 'png' | 'jpeg') => {
+      const blob = await toBlob(node, {
+        pixelRatio: scale,
+        cacheBust: true,
+        filter: exportFilter,
+        width: node.offsetWidth,
+        height: node.offsetHeight,
+        type: type === 'jpeg' ? 'image/jpeg' : 'image/png',
+        quality: type === 'jpeg' ? quality : undefined,
+        backgroundColor: type === 'jpeg' ? '#ffffff' : undefined,
+      });
+      if (!blob) throw new Error('이미지를 생성하지 못했습니다.');
+      return blob;
     };
 
-    if (format === 'pdf') {
-      // jsPDF 는 무거우므로 PDF 를 실제로 저장할 때만 불러온다.
-      const { default: jsPDF } = await import('jspdf');
-      const dataUrl = await toPng(node, shared);
-      const width = node.offsetWidth;
-      const height = node.offsetHeight;
-      const pdf = new jsPDF({
-        orientation: width >= height ? 'landscape' : 'portrait',
-        unit: 'px',
-        format: [width, height],
-        compress: true,
-      });
-      pdf.addImage(dataUrl, 'PNG', 0, 0, width, height);
-      pdf.save(`${base}.pdf`);
-      return;
+    try {
+      if (format === 'pdf') {
+        // jsPDF 는 무거우므로 PDF 를 실제로 저장할 때만 불러온다.
+        const { default: jsPDF } = await import('jspdf');
+        let pdf: import('jspdf').jsPDF | null = null;
+
+        for (let page = 0; page < pager.pages; page += 1) {
+          pager.show(page);
+          const dataUrl = await toPng(node, {
+            pixelRatio: scale, cacheBust: true, filter: exportFilter,
+            width: node.offsetWidth, height: node.offsetHeight,
+          });
+          const width = node.offsetWidth;
+          const height = node.offsetHeight;
+          if (!pdf) {
+            pdf = new jsPDF({
+              orientation: width >= height ? 'landscape' : 'portrait',
+              unit: 'px',
+              format: [width, height],
+              compress: true,
+            });
+          } else {
+            pdf.addPage([width, height], width >= height ? 'landscape' : 'portrait');
+          }
+          pdf.addImage(dataUrl, 'PNG', 0, 0, width, height);
+        }
+        pdf?.save(`${base}.pdf`);
+        return;
+      }
+
+      for (let page = 0; page < pager.pages; page += 1) {
+        pager.show(page);
+        const blob = await shot(format);
+        const url = URL.createObjectURL(blob);
+        triggerDownload(url, `${base}${suffix(page)}.${format === 'jpeg' ? 'jpg' : 'png'}`);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        // 브라우저가 연속 다운로드를 막지 않도록 살짝 간격을 둔다.
+        if (page < pager.pages - 1) await new Promise((r) => setTimeout(r, 350));
+      }
+    } finally {
+      pager.restore();
     }
-
-    const blob = await toBlob(node, {
-      ...shared,
-      type: format === 'jpeg' ? 'image/jpeg' : 'image/png',
-      quality: format === 'jpeg' ? quality : undefined,
-      backgroundColor: format === 'jpeg' ? '#ffffff' : undefined,
-    });
-    if (!blob) throw new Error('이미지를 생성하지 못했습니다.');
-
-    const url = URL.createObjectURL(blob);
-    triggerDownload(url, `${base}.${format === 'jpeg' ? 'jpg' : 'png'}`);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 }
 

@@ -31,6 +31,8 @@ export interface RoleColors {
   emphasisItalic: boolean;
   /** 대사 기울임 */
   dialogueItalic: boolean;
+  /** 선택 영역 좌측 세로선의 기본 색 */
+  barColor: string;
 }
 
 export type BackgroundType = 'solid' | 'gradient' | 'image' | 'video';
@@ -43,7 +45,9 @@ export interface Background {
   gradientAngle: number;
   /** data: URL 또는 외부 주소 (gif 포함) */
   imageUrl: string;
-  imageFit: 'cover' | 'contain' | 'repeat';
+  imageFit: 'cover' | 'contain' | 'repeat' | 'custom';
+  /** imageFit 이 custom 일 때의 가로 크기 (%) */
+  imageScale: number;
   /** 배경 이미지 위치 (%) — 드래그로 조절한다 */
   imageX: number;
   imageY: number;
@@ -109,10 +113,19 @@ export interface Messenger {
 
 export interface CharacterStyle {
   name: string;
+  /** 이름 색 */
   color: string;
+  /** 이 캐릭터의 대사 색. 비어 있으면 공통 대사 색을 쓴다 */
+  dialogueColor: string;
   /** data: URL 프로필 이미지. 비어 있으면 이름 색상의 원형으로 대체 */
   avatar: string;
   isMe: boolean;
+}
+
+/** 사용자가 올린 글꼴. 실제 파일은 IndexedDB 에 두고 여기엔 목록만 남긴다. */
+export interface CustomFont {
+  id: string;
+  label: string;
 }
 
 export interface ExportOptions {
@@ -140,6 +153,7 @@ export interface Settings {
   meta: Meta;
   messenger: Messenger;
   characters: Record<string, CharacterStyle>;
+  customFonts: CustomFont[];
   exportOptions: ExportOptions;
 }
 

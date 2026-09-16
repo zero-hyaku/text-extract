@@ -8,7 +8,7 @@ import {
 import type { Role } from '../lib/parse';
 import { useStore } from '../store';
 
-interface Position { top: number; left: number; }
+interface Position { top: number; left: number; below: boolean; }
 
 const INLINE_BUTTONS: Array<{ command: InlineCommand; label: string; title: string }> = [
   { command: 'bold', label: 'B', title: '볼드' },
@@ -57,9 +57,15 @@ export function SelectionPopup({
         return;
       }
       const host = boundary.getBoundingClientRect();
+      // boundary 는 스크롤되는 영역이라, 스크롤량을 더해야 글자에 붙어 따라다닌다.
+      const top = rect.top - host.top + boundary.scrollTop;
+      const left = rect.left - host.left + boundary.scrollLeft + rect.width / 2;
+      // 위쪽 공간이 모자라면 글자 아래로 내린다.
+      const below = rect.top - host.top < 120;
       setPosition({
-        top: rect.top - host.top - 12,
-        left: rect.left - host.left + rect.width / 2,
+        top: below ? top + rect.height + 10 : top - 10,
+        left,
+        below,
       });
       setActive(Object.fromEntries(INLINE_BUTTONS.map((b) => [b.command, queryInline(b.command)])));
       setRole(selectionRole(editorRoot));
@@ -98,7 +104,7 @@ export function SelectionPopup({
 
   return (
     <div
-      className="selection-popup"
+      className={`selection-popup${position.below ? ' is-below' : ''}`}
       style={{ top: position.top, left: position.left }}
       // 버튼을 누를 때 선택이 풀리지 않도록 mousedown 을 막는다.
       onMouseDown={(event) => event.preventDefault()}

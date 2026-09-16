@@ -122,9 +122,90 @@ export function removeFormatting(root: HTMLElement): void {
   });
 }
 
+/**
+ * 선택한 글 왼쪽에 색 있는 세로선을 붙인다.
+ * 색은 --te-bar-color 로 들고 있어 나중에 색만 바꿀 수도 있다.
+ */
+export function applyBar(root: HTMLElement, color: string): void {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+
+  // 이미 세로선 안이라면 색만 갈아 끼운다.
+  const existing = barAtSelection(root);
+  if (existing) {
+    existing.style.setProperty('--te-bar-color', color);
+    return;
+  }
+
+  const range = sel.getRangeAt(0);
+  const span = document.createElement('span');
+  span.className = 'te-bar';
+  span.style.setProperty('--te-bar-color', color);
+  try {
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+  } catch {
+    return;
+  }
+  sel.removeAllRanges();
+  const next = document.createRange();
+  next.selectNodeContents(span);
+  sel.addRange(next);
+}
+
+/** 선택 영역이 속한 세로선 span */
+export function barAtSelection(root: HTMLElement | null): HTMLElement | null {
+  if (!root) return null;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return null;
+  let node: Node | null = sel.getRangeAt(0).commonAncestorContainer;
+  while (node && node !== root) {
+    if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).classList.contains('te-bar')) {
+      return node as HTMLElement;
+    }
+    node = node.parentNode;
+  }
+  return null;
+}
+
+export function removeBar(root: HTMLElement): void {
+  const bar = barAtSelection(root);
+  if (!bar) return;
+  const parent = bar.parentNode;
+  if (!parent) return;
+  while (bar.firstChild) parent.insertBefore(bar.firstChild, bar);
+  parent.removeChild(bar);
+  root.normalize();
+}
+
+/** 커서 자리에 페이지 나눔선을 넣는다. 저장할 때 이 선을 기준으로 쪼갠다. */
+export function insertPageBreak(root: HTMLElement): void {
+  const sel = window.getSelection();
+  const breakEl = document.createElement('div');
+  breakEl.className = 'te-pagebreak';
+  breakEl.dataset.tePageBreak = 'true';
+  breakEl.dataset.exportIgnore = 'true';
+  breakEl.contentEditable = 'false';
+
+  let line: Node | null = sel && sel.rangeCount > 0 ? sel.getRangeAt(0).startContainer : null;
+  while (line && line.parentNode !== root) line = line.parentNode;
+
+  if (line) root.insertBefore(breakEl, line.nextSibling);
+  else root.appendChild(breakEl);
+
+  // 나눔선 뒤에 바로 쓸 수 있도록 빈 줄을 하나 붙여 둔다.
+  const line2 = document.createElement('div');
+  line2.appendChild(document.createElement('br'));
+  root.insertBefore(line2, breakEl.nextSibling);
+}
+
+export function pageBreakCount(root: HTMLElement | null): number {
+  return root ? root.querySelectorAll('[data-te-page-break]').length : 0;
+}
+
 /** 본문에 적용된 모든 인라인 서식을 벗겨낸다 (역할 span 은 유지). */
 export function stripAllFormatting(root: HTMLElement): void {
-  root.querySelectorAll<HTMLElement>('b, strong, i, em, u, s, strike, font').forEach((el) => {
+  root.querySelectorAll<HTMLElement>('b, strong, i, em, u, s, strike, font, span.te-bar').forEach((el) => {
     const parent = el.parentNode;
     if (!parent) return;
     while (el.firstChild) parent.insertBefore(el.firstChild, el);

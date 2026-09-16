@@ -58,9 +58,14 @@ export function BackgroundPanel() {
               { label: '꽉 채우기', value: 'cover' as const },
               { label: '전체 보이기', value: 'contain' as const },
               { label: '반복', value: 'repeat' as const },
+              { label: '직접 크기 지정', value: 'custom' as const },
             ]}
             onChange={(imageFit) => patch('background', { imageFit })}
           />
+          {bg.imageFit === 'custom' ? (
+            <NumberSlider label="이미지 크기" value={bg.imageScale} min={10} max={400} unit="%"
+              hint="영역 너비 기준" onChange={(imageScale) => patch('background', { imageScale })} />
+          ) : null}
           <ColorField label="여백 색" value={bg.color} onChange={(color) => patch('background', { color })} />
 
           <Field label="이미지 위치">

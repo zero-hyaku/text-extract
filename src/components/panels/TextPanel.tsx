@@ -1,14 +1,28 @@
+import { useEffect, useState } from 'react';
 import { FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../../defaults';
 import {
-  applyFontSize, applyHighlight, applyTextColor, clearHighlight,
-  hasSelectionInside, removeFormatting, toggleInline,
+  applyBar, applyFontSize, applyHighlight, applyTextColor, clearHighlight,
+  hasSelectionInside, insertPageBreak, pageBreakCount, removeBar, removeFormatting, toggleInline,
 } from '../../lib/format';
+import { deleteFontFile, fontFamilyOf, installFont, saveFontFile } from '../../lib/fonts';
 import { useStore } from '../../store';
-import { ButtonGroup, Field, Hint, NumberSlider, Select } from '../ui';
+import { ButtonGroup, Field, FileButton, Hint, NumberSlider, Select } from '../ui';
 
 export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
-  const { settings, patch } = useStore();
+  const { settings, patch, set } = useStore();
   const t = settings.typography;
+  const [breaks, setBreaks] = useState(0);
+  const [fontError, setFontError] = useState('');
+
+  useEffect(() => { setBreaks(pageBreakCount(editorRoot)); }, [editorRoot]);
+
+  const fontOptions = [
+    ...FONT_OPTIONS,
+    ...settings.customFonts.map((font) => ({
+      label: `${font.label} (내 글꼴)`,
+      value: fontFamilyOf(font),
+    })),
+  ];
 
   const guard = (run: (root: HTMLElement) => void) => () => {
     if (editorRoot) run(editorRoot);
@@ -33,7 +47,36 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
           <button type="button" className="cmd-italic" title="이탤릭" onClick={guard(() => toggleInline('italic'))}>I</button>
           <button type="button" className="cmd-underline" title="밑줄" onClick={guard(() => toggleInline('underline'))}>U</button>
           <button type="button" className="cmd-strikeThrough" title="취소선" onClick={guard(() => toggleInline('strikeThrough'))}>S</button>
+          <button
+            type="button"
+            className="cmd-bar"
+            title="왼쪽에 세로선 넣기"
+            onClick={guard((root) => applyBar(root, settings.roles.barColor))}
+          >
+            ▌
+          </button>
+          <button type="button" title="세로선 빼기" onClick={guard(removeBar)}>▌빼기</button>
           <button type="button" title="서식 지우기" onClick={guard(removeFormatting)}>지우기</button>
+        </div>
+      </Field>
+
+      <Field label="세로선 색" hint="드래그한 뒤 색을 고르면 그 줄에 적용">
+        <div className="color-row" onMouseDown={(e) => e.preventDefault()}>
+          <input
+            type="color"
+            value={/^#[0-9a-f]{6}$/i.test(settings.roles.barColor) ? settings.roles.barColor : '#e0a340'}
+            onChange={(e) => {
+              patch('roles', { barColor: e.target.value });
+              if (editorRoot) applyBar(editorRoot, e.target.value);
+            }}
+          />
+          <input
+            type="text"
+            className="color-text"
+            value={settings.roles.barColor}
+            spellCheck={false}
+            onChange={(e) => patch('roles', { barColor: e.target.value })}
+          />
         </div>
       </Field>
 
@@ -79,9 +122,59 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
       <Select
         label="글꼴"
         value={t.fontFamily}
-        options={FONT_OPTIONS}
+        options={fontOptions}
         onChange={(fontFamily) => patch('typography', { fontFamily })}
       />
+      <Field label="내 글꼴 올리기" hint="ttf · otf · woff2">
+        <div className="button-row">
+          <FileButton
+            label="글꼴 파일 추가"
+            accept=".ttf,.otf,.woff,.woff2,font/*"
+            onPick={async (file) => {
+              setFontError('');
+              try {
+                const font = await saveFontFile(file);
+                const ok = await installFont(font);
+                if (!ok) throw new Error('글꼴을 읽지 못했습니다.');
+                set('customFonts', [...settings.customFonts, font]);
+                patch('typography', { fontFamily: fontFamilyOf(font) });
+              } catch (error) {
+                setFontError(error instanceof Error ? error.message : '글꼴을 추가하지 못했습니다.');
+              }
+            }}
+          />
+        </div>
+      </Field>
+      {fontError ? <p className="status-line is-error">{fontError}</p> : null}
+      {settings.customFonts.length > 0 ? (
+        <div className="slot-list">
+          {settings.customFonts.map((font) => (
+            <div className="slot-row" key={font.id}>
+              <span className="slot-name">{font.label}</span>
+              <button
+                type="button"
+                className="mini-button"
+                onClick={() => patch('typography', { fontFamily: fontFamilyOf(font) })}
+              >
+                사용
+              </button>
+              <button
+                type="button"
+                className="mini-button danger"
+                onClick={async () => {
+                  await deleteFontFile(font.id);
+                  set('customFonts', settings.customFonts.filter((f) => f.id !== font.id));
+                  if (t.fontFamily === fontFamilyOf(font)) {
+                    patch('typography', { fontFamily: FONT_OPTIONS[0].value });
+                  }
+                }}
+              >
+                삭제
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
       <Select
         label="굵기"
         value={t.fontWeight}
@@ -142,6 +235,40 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
         ]}
         onChange={(wordBreak) => patch('typography', { wordBreak })}
       />
+      <hr className="divider" />
+
+      <Field label="페이지 나눔" hint={breaks > 0 ? `${breaks}개 · ${breaks + 1}장으로 저장` : '저장할 때 분할'}>
+        <div className="button-row">
+          <button
+            type="button"
+            className="mini-button"
+            onClick={() => {
+              if (!editorRoot) return;
+              insertPageBreak(editorRoot);
+              setBreaks(pageBreakCount(editorRoot));
+            }}
+          >
+            커서 위치에 나눔선 넣기
+          </button>
+          <button
+            type="button"
+            className="mini-button danger"
+            disabled={breaks === 0}
+            onClick={() => {
+              if (!editorRoot) return;
+              editorRoot.querySelectorAll('[data-te-page-break]').forEach((el) => el.remove());
+              setBreaks(0);
+            }}
+          >
+            모두 빼기
+          </button>
+        </div>
+      </Field>
+      <Hint>
+        나눔선은 화면에만 보이고 결과물에는 나오지 않습니다. 저장하면 나눔선을 기준으로
+        여러 장(PDF 는 여러 쪽)으로 나뉩니다.
+      </Hint>
+
       <Hint>장평은 넓은 폭으로 줄바꿈을 계산한 뒤 가로로 눌러 맞추므로, 값을 바꾸면 줄바꿈 위치도 함께 바뀝니다.</Hint>
     </>
   );

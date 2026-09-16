@@ -16,9 +16,11 @@ export function Section({
   );
 }
 
-export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+export function Field({
+  label, hint, children, variant,
+}: { label: string; hint?: string; children: ReactNode; variant?: 'slider' | 'color' }) {
   return (
-    <div className="field">
+    <div className={`field${variant ? ` field-${variant}` : ''}`}>
       <div className="field-label">
         <span>{label}</span>
         {hint ? <span className="field-hint">{hint}</span> : null}
@@ -42,7 +44,7 @@ export function NumberSlider({
   const id = useId();
   const clamp = (next: number) => Math.min(max, Math.max(min, next));
   return (
-    <Field label={label} hint={hint}>
+    <Field label={label} hint={hint} variant="slider">
       <div className="slider-row">
         <input
           id={id}
@@ -76,7 +78,7 @@ export function ColorField({
   label, value, onChange, allowAlpha = false,
 }: { label: string; value: string; onChange: (value: string) => void; allowAlpha?: boolean }) {
   return (
-    <Field label={label}>
+    <Field label={label} variant="color">
       <div className="color-row">
         <input type="color" value={normalizeHex(value)} onChange={(e) => onChange(e.target.value)} />
         <input

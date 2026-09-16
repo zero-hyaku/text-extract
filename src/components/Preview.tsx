@@ -13,7 +13,15 @@ function characterCss(settings: Settings): string {
   return Object.values(characters)
     .map((character) => {
       const name = escapeAttr(character.name);
-      return `.te-capture [data-te-role="name"][data-te-speaker="${name}"]{color:var(--te-ink,${character.color});}`;
+      const rules = [
+        `.te-capture [data-te-role="name"][data-te-speaker="${name}"]{color:var(--te-ink,${character.color});}`,
+      ];
+      if (character.dialogueColor) {
+        rules.push(
+          `.te-capture [data-te-role="dialogue"][data-te-speaker="${name}"]{color:var(--te-ink,${character.dialogueColor});}`,
+        );
+      }
+      return rules.join('');
     })
     .join('');
 }
@@ -44,7 +52,9 @@ function backgroundLayer(settings: Settings): ReactNode {
             ...base,
             backgroundColor: bg.color,
             backgroundImage: `url("${bg.imageUrl}")`,
-            backgroundSize: bg.imageFit === 'repeat' ? 'auto' : bg.imageFit,
+            backgroundSize: bg.imageFit === 'repeat'
+              ? 'auto'
+              : bg.imageFit === 'custom' ? `${bg.imageScale}% auto` : bg.imageFit,
             backgroundRepeat: bg.imageFit === 'repeat' ? 'repeat' : 'no-repeat',
             backgroundPosition: `${bg.imageX}% ${bg.imageY}%`,
           }}

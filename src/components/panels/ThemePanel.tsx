@@ -1,25 +1,17 @@
 import { useStore } from '../../store';
 import { ButtonGroup, ColorField, Hint, NumberSlider, Toggle } from '../ui';
-import type { ThemeId } from '../../types';
 
 export function ThemePanel() {
-  const { settings, patch, set } = useStore();
+  const { settings, patch } = useStore();
   const messenger = settings.messenger;
 
   return (
     <>
-      <ButtonGroup
-        label="테마"
-        value={settings.theme}
-        options={[
-          { label: '기본', value: 'plain' as ThemeId },
-          { label: '메신저', value: 'messenger' as ThemeId },
-        ]}
-        onChange={(theme) => set('theme', theme)}
-      />
-
       {settings.theme !== 'messenger' ? (
-        <Hint>메신저 테마를 켜면 본문의 대사가 말풍선으로 바뀌고, 캐릭터 프로필이 함께 표시됩니다.</Hint>
+        <Hint>
+          사이드바 맨 위에서 <strong>메신저</strong> 테마를 켜면 본문의 대사가 말풍선으로 바뀌고,
+          캐릭터 프로필이 함께 표시됩니다.
+        </Hint>
       ) : (
         <>
           <Hint>

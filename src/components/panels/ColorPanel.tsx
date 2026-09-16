@@ -15,7 +15,7 @@ export function ColorPanel({ detectedNames }: { detectedNames: string[] }) {
     setSettings((prev) => {
       const next = { ...prev.characters };
       for (const name of missing) {
-        next[name] = { name, color: prev.roles.name, avatar: '', isMe: false };
+        next[name] = { name, color: prev.roles.name, dialogueColor: '', avatar: '', isMe: false };
       }
       return { ...prev, characters: next };
     });
@@ -86,6 +86,7 @@ export function ColorPanel({ detectedNames }: { detectedNames: string[] }) {
         <Hint>
           본문에서 이름을 드래그해 팝업의 <strong>캐릭터</strong> 버튼으로 추가하거나, 위 칸에 직접 입력하세요.
           본문에 <code>이름: "대사"</code> 형태로 쓰면 자동으로도 찾아냅니다.
+          캐릭터마다 이름 색과 대사 색을 따로 정할 수 있고, 대사 색을 비워 두면 공통 대사 색을 씁니다.
         </Hint>
       ) : null}
 
@@ -105,11 +106,30 @@ export function ColorPanel({ detectedNames }: { detectedNames: string[] }) {
             <div className="character-main">
               <div className="character-name">{character.name}</div>
               <div className="character-controls">
-                <input
-                  type="color"
-                  value={/^#[0-9a-f]{6}$/i.test(character.color) ? character.color : '#000000'}
-                  onChange={(e) => upsertCharacter(character.name, { color: e.target.value })}
-                />
+                <label className="mini-color" title="이름 색">
+                  <span>이름</span>
+                  <input
+                    type="color"
+                    value={/^#[0-9a-f]{6}$/i.test(character.color) ? character.color : '#000000'}
+                    onChange={(e) => upsertCharacter(character.name, { color: e.target.value })}
+                  />
+                </label>
+                <label className="mini-color" title="이 캐릭터의 대사 색">
+                  <span>대사</span>
+                  <input
+                    type="color"
+                    value={/^#[0-9a-f]{6}$/i.test(character.dialogueColor)
+                      ? character.dialogueColor
+                      : roles.dialogue}
+                    onChange={(e) => upsertCharacter(character.name, { dialogueColor: e.target.value })}
+                  />
+                </label>
+                {character.dialogueColor ? (
+                  <button type="button" className="mini-button"
+                    onClick={() => upsertCharacter(character.name, { dialogueColor: '' })}>
+                    대사색 해제
+                  </button>
+                ) : null}
                 <FileButton
                   label="프로필"
                   accept="image/*"
