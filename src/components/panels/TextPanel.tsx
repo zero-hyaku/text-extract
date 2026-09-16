@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { FONT_OPTIONS, HIGHLIGHT_SWATCHES } from '../../defaults';
 import {
   applyBar, applyFontFamily, applyFontSize, applyHighlight, applyTextColor, clearHighlight,
-  hasSelectionInside, insertImage, insertPageBreak, pageBreakCount, removeBar, removeFormatting,
-  selectionImage, toggleInline,
+  alignImage, hasSelectionInside, insertImage, insertPageBreak, pageBreakCount, removeBar,
+  removeFormatting, selectionImage, toggleInline, type ImageAlign,
 } from '../../lib/format';
 import { readFileAsDataUrl } from '../../lib/exporters';
 import { deleteFontFile, fontFamilyOf, installFont, saveFontFile } from '../../lib/fonts';
@@ -62,7 +62,7 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
         </div>
       </Field>
 
-      <Field label="세로선 색" hint="드래그한 뒤 색을 고르면 그 줄에 적용">
+      <Field label="세로선 색" hint="드래그하지 않으면 커서가 있는 줄에 적용">
         <div className="color-row" onMouseDown={(e) => e.preventDefault()}>
           <input
             type="color"
@@ -271,24 +271,45 @@ export function TextPanel({ editorRoot }: { editorRoot: HTMLElement | null }) {
       </Field>
 
       {selectionImage(editorRoot) ? (
-        <Field label="선택한 이미지 크기">
-          <div className="button-row">
-            {[25, 50, 75, 100].map((percent) => (
-              <button
-                key={percent}
-                type="button"
-                className="mini-button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  const image = selectionImage(editorRoot);
-                  if (image) image.style.width = `${percent}%`;
-                }}
-              >
-                {percent}%
-              </button>
-            ))}
-          </div>
-        </Field>
+        <>
+          <Field label="고른 이미지 크기">
+            <div className="button-row">
+              {[25, 50, 75, 100].map((percent) => (
+                <button
+                  key={percent}
+                  type="button"
+                  className="mini-button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    const image = selectionImage(editorRoot);
+                    if (image) image.style.width = `${percent}%`;
+                  }}
+                >
+                  {percent}%
+                </button>
+              ))}
+            </div>
+          </Field>
+          <Field label="고른 이미지 정렬">
+            <div className="button-row">
+              {([['왼쪽', 'left'], ['가운데', 'center'], ['오른쪽', 'right']] as Array<[string, ImageAlign]>)
+                .map(([label, value]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className="mini-button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      const image = selectionImage(editorRoot);
+                      if (image) alignImage(image, value);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+            </div>
+          </Field>
+        </>
       ) : null}
 
       {settings.stickers.length > 0 ? (

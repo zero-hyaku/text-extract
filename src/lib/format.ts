@@ -18,6 +18,29 @@ function setCssStyling(enabled: boolean) {
   }
 }
 
+/**
+ * 사이드바 버튼을 누르면 본문에서 포커스가 떠나 커서 자리가 사라진다.
+ * 마지막 커서·선택을 기억해 두었다가 명령 직전에 되돌린다.
+ */
+let remembered: Range | null = null;
+
+export function rememberSelection(root: HTMLElement): void {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  if (root.contains(range.commonAncestorContainer)) remembered = range.cloneRange();
+}
+
+export function restoreSelection(root: HTMLElement): boolean {
+  const sel = window.getSelection();
+  if (!sel) return false;
+  if (sel.rangeCount > 0 && root.contains(sel.getRangeAt(0).commonAncestorContainer)) return true;
+  if (!remembered || !root.contains(remembered.commonAncestorContainer)) return false;
+  sel.removeAllRanges();
+  sel.addRange(remembered);
+  return true;
+}
+
 export function hasSelectionInside(root: HTMLElement | null): boolean {
   if (!root) return false;
   const sel = window.getSelection();
@@ -134,6 +157,7 @@ export function insertImage(root: HTMLElement, url: string, widthPercent = 60): 
   image.style.width = `${widthPercent}%`;
   image.dataset.teImg = 'true';
 
+  restoreSelection(root);
   const sel = window.getSelection();
   if (sel && sel.rangeCount > 0 && root.contains(sel.getRangeAt(0).startContainer)) {
     const range = sel.getRangeAt(0);
@@ -148,7 +172,7 @@ export function insertImage(root: HTMLElement, url: string, widthPercent = 60): 
   }
 }
 
-/** 선택 영역이 이미지 하나라면 그 이미지를 돌려준다. */
+/** 클릭하거나 드래그한 이미지. 클릭만 해도 잡히도록 선택 범위를 이미지에 맞춰 둔다. */
 export function selectionImage(root: HTMLElement | null): HTMLImageElement | null {
   if (!root) return null;
   const sel = window.getSelection();
@@ -157,11 +181,34 @@ export function selectionImage(root: HTMLElement | null): HTMLImageElement | nul
 
   const container = range.commonAncestorContainer;
   if (container.nodeType === Node.ELEMENT_NODE) {
-    const found = (container as HTMLElement).querySelectorAll?.('img[data-te-img]');
+    const el = container as HTMLElement;
+    if (el.tagName === 'IMG') return el as HTMLImageElement;
+    const found = el.querySelectorAll?.('img[data-te-img]');
+    if (found && found.length === 1 && range.toString() === '') return found[0] as HTMLImageElement;
     if (found && found.length === 1) return found[0] as HTMLImageElement;
-    if ((container as HTMLElement).tagName === 'IMG') return container as HTMLImageElement;
   }
   return null;
+}
+
+/** 이미지를 클릭했을 때 그 이미지만 선택 상태로 만든다. */
+export function selectImage(image: HTMLImageElement): void {
+  const sel = window.getSelection();
+  if (!sel) return;
+  const range = document.createRange();
+  range.selectNode(image);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  remembered = range.cloneRange();
+}
+
+export type ImageAlign = 'left' | 'center' | 'right';
+
+export function alignImage(image: HTMLImageElement, align: ImageAlign): void {
+  image.style.display = 'block';
+  image.style.marginTop = '6px';
+  image.style.marginBottom = '6px';
+  image.style.marginLeft = align === 'left' ? '0' : 'auto';
+  image.style.marginRight = align === 'right' ? '0' : 'auto';
 }
 
 /**
@@ -224,17 +271,18 @@ export function bubbleAtSelection(root: HTMLElement | null): HTMLElement | null 
   return null;
 }
 
-export function removeBubble(root: HTMLElement): void {
+/** 말풍선을 풀고, 남은 글을 담은 요소를 돌려준다 (인물을 바꿔 다시 감쌀 때 쓴다). */
+export function removeBubble(root: HTMLElement): HTMLElement | null {
   const bubble = bubbleAtSelection(root);
-  if (!bubble) return;
+  if (!bubble) return null;
   const parent = bubble.parentNode;
-  if (!parent) return;
+  if (!parent) return null;
   bubble.querySelector('.te-bubble-name')?.remove();
   const body = bubble.querySelector('.te-bubble-text');
-  const line = document.createElement('div');
+  const line = document.createElement('span');
   while (body?.firstChild) line.appendChild(body.firstChild);
   parent.replaceChild(line, bubble);
-  root.normalize();
+  return line;
 }
 
 export function removeFormatting(root: HTMLElement): void {
@@ -252,14 +300,26 @@ export function removeFormatting(root: HTMLElement): void {
  * 색은 --te-bar-color 로 들고 있어 나중에 색만 바꿀 수도 있다.
  */
 export function applyBar(root: HTMLElement, color: string): void {
+  restoreSelection(root);
   const sel = window.getSelection();
-  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+  if (!sel || sel.rangeCount === 0) return;
 
   // 이미 세로선 안이라면 색만 갈아 끼운다.
   const existing = barAtSelection(root);
   if (existing) {
     existing.style.setProperty('--te-bar-color', color);
     return;
+  }
+
+  // 드래그하지 않았다면 커서가 놓인 줄 전체에 붙인다.
+  if (sel.isCollapsed) {
+    let line: Node | null = sel.getRangeAt(0).startContainer;
+    while (line && line.parentNode !== root) line = line.parentNode;
+    if (!line || !line.textContent?.trim()) return;
+    const lineRange = document.createRange();
+    lineRange.selectNodeContents(line);
+    sel.removeAllRanges();
+    sel.addRange(lineRange);
   }
 
   const range = sel.getRangeAt(0);

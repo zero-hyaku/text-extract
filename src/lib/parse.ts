@@ -166,7 +166,8 @@ const CLASS_BY_ROLE: Record<Role, string> = {
  * 볼드·색상이 함께 사라진다 — style 이 남아 있으면 평범한 span 으로 옮겨 살린다.
  */
 export function unwrapRoles(root: HTMLElement): void {
-  const marked = root.querySelectorAll<HTMLElement>('[data-te-role]');
+  // 이름 구분 기호 래퍼도 함께 벗긴다 — 남겨 두면 `이름:` 패턴이 끊겨 다시 인식되지 않는다.
+  const marked = root.querySelectorAll<HTMLElement>('[data-te-role], .te-namesep, .te-quote');
   marked.forEach((el) => {
     const parent = el.parentNode;
     if (!parent) return;
@@ -186,6 +187,13 @@ export function unwrapRoles(root: HTMLElement): void {
   root.normalize();
 }
 
+function markSpan(className: string, text: string): HTMLElement {
+  const span = document.createElement('span');
+  span.className = className;
+  span.textContent = text;
+  return span;
+}
+
 function isBlockBoundary(node: Node): boolean {
   if (node.nodeType !== Node.ELEMENT_NODE) return false;
   const tag = (node as HTMLElement).tagName;
@@ -196,8 +204,32 @@ function isBlockBoundary(node: Node): boolean {
  * 에디터 안의 텍스트에 역할 span 을 다시 씌운다.
  * 텍스트 노드 단위로만 감싸므로 사용자가 적용해 둔 볼드/색상 등은 유지된다.
  */
+/**
+ * contenteditable 은 첫 줄을 <div> 로 감싸지 않는다.
+ * 줄 단위로 거는 규칙(메신저 오른쪽 정렬, 페이지 나눔)이 먹으려면 모든 줄이 요소여야 한다.
+ */
+function wrapLooseFirstLine(root: HTMLElement): void {
+  const loose: Node[] = [];
+  for (const node of Array.from(root.childNodes)) {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const tag = (node as HTMLElement).tagName;
+      if (tag === 'DIV' || tag === 'P' || tag === 'LI') break;
+      if (tag === 'BR') { loose.push(node); break; }
+    }
+    loose.push(node);
+  }
+  if (loose.length === 0) return;
+  if (loose.length === 1 && loose[0].nodeType === Node.ELEMENT_NODE
+    && (loose[0] as HTMLElement).tagName === 'BR') return;
+
+  const line = document.createElement('div');
+  root.insertBefore(line, loose[0]);
+  loose.forEach((node) => line.appendChild(node));
+}
+
 export function markupRoles(root: HTMLElement): void {
   unwrapRoles(root);
+  wrapLooseFirstLine(root);
 
   const state = createScanState();
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
@@ -227,16 +259,35 @@ export function markupRoles(root: HTMLElement): void {
 
     const fragment = document.createDocumentFragment();
     for (const piece of pieces) {
-      if (piece.role === 'narration') {
-        fragment.appendChild(document.createTextNode(piece.text));
+      // 서술까지 span 으로 감싼다 — 메신저 모드에서 역할별로 다르게 보여주려면
+      // 모든 조각이 CSS 로 잡혀야 하기 때문.
+      const span = document.createElement('span');
+      span.className = CLASS_BY_ROLE[piece.role];
+      span.dataset.teRole = piece.role;
+      if (piece.speaker) span.dataset.teSpeaker = piece.speaker;
+
+      // `이름:` 의 구분 기호와 대사의 따옴표는 따로 감싼다.
+      // 메신저 말풍선에서는 이름과 대사만 보여야 하기 때문이다.
+      const separator = piece.role === 'name' ? /([:：]\s*)$/.exec(piece.text) : null;
+      if (separator) {
+        span.appendChild(document.createTextNode(piece.text.slice(0, separator.index)));
+        span.appendChild(markSpan('te-namesep', separator[1]));
+      } else if (piece.role === 'dialogue') {
+        let text = piece.text;
+        if (OPEN_QUOTES[text[0]]) {
+          span.appendChild(markSpan('te-quote', text[0]));
+          text = text.slice(1);
+        }
+        const tail = text[text.length - 1];
+        const hasTail = text.length > 0 && (CLOSE_ONLY.has(tail) || tail === '"');
+        if (hasTail) text = text.slice(0, -1);
+        span.appendChild(document.createTextNode(text));
+        if (hasTail) span.appendChild(markSpan('te-quote', tail));
       } else {
-        const span = document.createElement('span');
-        span.className = CLASS_BY_ROLE[piece.role];
-        span.dataset.teRole = piece.role;
-        if (piece.speaker) span.dataset.teSpeaker = piece.speaker;
         span.textContent = piece.text;
-        fragment.appendChild(span);
       }
+
+      fragment.appendChild(span);
     }
     textNode.parentNode?.replaceChild(fragment, textNode);
   }

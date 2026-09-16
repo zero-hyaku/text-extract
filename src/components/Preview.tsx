@@ -6,10 +6,11 @@ function escapeAttr(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-/** 캐릭터별 이름 색상을 동적 CSS 규칙으로 만든다. */
+/** 캐릭터별 색상·말풍선을 동적 CSS 규칙으로 만든다. */
 function characterCss(settings: Settings): string {
-  const { characters, roles } = settings;
+  const { characters, roles, theme } = settings;
   if (!roles.enabled) return '';
+
   return Object.values(characters)
     .map((character) => {
       const name = escapeAttr(character.name);
@@ -20,6 +21,40 @@ function characterCss(settings: Settings): string {
         rules.push(
           `.te-capture [data-te-role="dialogue"][data-te-speaker="${name}"]{color:var(--te-ink,${character.dialogueColor});}`,
         );
+      }
+
+      if (theme === 'messenger') {
+        if (character.bubbleColor) {
+          rules.push(
+            `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]{background:${character.bubbleColor};}`,
+          );
+        }
+        if (character.bubbleTextColor) {
+          rules.push(
+            `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]{color:var(--te-ink,${character.bubbleTextColor});}`,
+          );
+        }
+        if (character.avatar) {
+          rules.push(
+            `.messenger-mode [data-te-role="name"][data-te-speaker="${name}"]::before{background-image:url("${character.avatar}");}`,
+          );
+        }
+        if (character.isMe) {
+          // 줄 전체를 오른쪽으로 보내야 해서 :has() 로 부모 줄을 잡는다.
+          rules.push(
+            `.messenger-mode .editor > *:has([data-te-speaker="${name}"]){text-align:right;}`,
+          );
+          if (!character.bubbleColor) {
+            rules.push(
+              `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]{background:${settings.messenger.myBubbleColor};}`,
+            );
+          }
+          if (!character.bubbleTextColor) {
+            rules.push(
+              `.messenger-mode [data-te-role="dialogue"][data-te-speaker="${name}"]{color:var(--te-ink,${settings.messenger.myBubbleTextColor});}`,
+            );
+          }
+        }
       }
       return rules.join('');
     })
@@ -155,6 +190,16 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
     ['--te-dialogue-style' as string]: roles.dialogueItalic ? 'italic' : 'normal',
     ['--te-dialogue-size' as string]: `${typography.dialogueFontSize}px`,
     ['--te-paragraph-gap' as string]: `${typography.paragraphGap}px`,
+    // 메신저 모드 — 같은 본문을 말풍선 모양으로만 다르게 보여준다
+    ['--msg-radius' as string]: `${settings.messenger.bubbleRadius}px`,
+    ['--msg-bubble' as string]: settings.messenger.bubbleColor,
+    ['--msg-bubble-text' as string]: settings.messenger.bubbleTextColor,
+    ['--msg-my-bubble' as string]: settings.messenger.myBubbleColor,
+    ['--msg-my-bubble-text' as string]: settings.messenger.myBubbleTextColor,
+    ['--msg-name-size' as string]: `${settings.messenger.nameSize}px`,
+    ['--msg-avatar' as string]: `${settings.messenger.profileSize}px`,
+    ['--msg-max' as string]: `${settings.messenger.bubbleMaxWidth}%`,
+    ['--msg-gap' as string]: `${settings.messenger.gap}px`,
   };
 
   const contentStyle: CSSProperties = {
@@ -190,6 +235,10 @@ export function Preview({ settings, captureRef, children }: PreviewProps) {
         'te-capture',
         roles.enabled ? '' : 'roles-off',
         settings.hideEmphasisMarks ? 'hide-marks' : '',
+        settings.theme === 'messenger' ? 'messenger-mode' : '',
+        settings.theme === 'messenger' ? `msg-narration-${settings.messenger.narrationStyle}` : '',
+        settings.theme === 'messenger' && settings.messenger.showProfile ? 'msg-profile' : '',
+        settings.theme === 'messenger' && settings.messenger.showName ? 'msg-name' : '',
       ].filter(Boolean).join(' ')}
       style={frameStyle}
     >

@@ -33,8 +33,9 @@
   color-scheme: dark;
 }
 
-/* 앱 화면 테마 — 결과 이미지 색과는 무관하다 */
-.app[data-app-theme='light'] {
+/* 앱 화면 테마 — 결과 이미지 색과는 무관하다.
+   최상위 요소에 걸어야 body 색까지 함께 바뀐다. */
+:root[data-app-theme='light'] {
   --ui-bg: #ffffff;
   --ui-panel: #f4f5f8;
   --ui-panel-2: #eaecf1;
@@ -72,9 +73,9 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: var(--stage-bg);
   color: var(--ui-text);
+  background: var(--stage-bg);
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -83,6 +84,7 @@ body {
 /* ------------------------------------------------------------------ */
 .app {
   display: flex;
+  color: var(--ui-text);
   height: 100%;
   overflow: hidden;
 }
@@ -116,6 +118,7 @@ body {
 }
 .sidebar-head h1 {
   margin: 0;
+  color: var(--ui-text);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -329,7 +332,8 @@ body {
 .zoom-sep { width: 1px; height: 16px; background: var(--ui-line); }
 
 /* 본문 속 이미지 */
-.te-img { display: block; max-width: 100%; height: auto; margin: 6px 0; }
+.te-img { display: block; max-width: 100%; height: auto; margin: 6px 0; cursor: pointer; }
+.te-img.is-picked { outline: 2px solid var(--ui-accent); outline-offset: 2px; }
 
 /* 본문 위 스티커 */
 .sticker-layer { position: absolute; inset: 0; z-index: 12; pointer-events: none; }
@@ -397,6 +401,59 @@ body {
   background: var(--b-avatar) center/cover no-repeat;
 }
 
+/* ------------------------------------------------------------------ */
+/* 메신저 모드                                                          */
+/* 같은 본문을 그대로 두고, 대사만 말풍선 모양으로 보여준다.             */
+/* 색·크기·글꼴 등 사용자가 준 서식은 전부 살아 있다.                    */
+/* ------------------------------------------------------------------ */
+.messenger-mode .editor > * { margin-top: var(--msg-gap); }
+.messenger-mode .editor > *:first-child { margin-top: 0; }
+
+.messenger-mode .te-dialogue {
+  display: inline-block;
+  max-width: var(--msg-max);
+  margin-top: 3px;
+  padding: 10px 16px;
+  border-radius: var(--msg-radius);
+  background: var(--msg-bubble);
+  color: var(--te-ink, var(--msg-bubble-text));
+  text-align: left;
+  vertical-align: top;
+}
+
+/* 메신저에서는 `이름:` 의 콜론과 대사의 따옴표를 감춘다 */
+.messenger-mode .te-namesep,
+.messenger-mode .te-quote { display: none; }
+
+/* 이름은 말풍선 위에 작게 */
+.messenger-mode .te-name {
+  display: block;
+  font-size: var(--msg-name-size);
+  font-weight: 500;
+  line-height: 1.6;
+}
+.te-capture:not(.msg-name).messenger-mode .te-name { display: none; }
+
+/* 프로필 사진은 이름 앞에 동그랗게 */
+.messenger-mode.msg-profile .te-name[data-te-speaker]::before {
+  content: '';
+  display: inline-block;
+  width: var(--msg-avatar);
+  height: var(--msg-avatar);
+  margin-right: 6px;
+  vertical-align: middle;
+  border-radius: 40%;
+  background: currentColor center/cover no-repeat;
+}
+
+/* '내 쪽' 캐릭터의 오른쪽 정렬과 말풍선 색은 캐릭터별 규칙에서 만든다 */
+
+/* 서술 처리 */
+.messenger-mode.msg-narration-muted .te-narration { opacity: 0.7; }
+.messenger-mode.msg-narration-hidden .te-narration,
+.messenger-mode.msg-narration-hidden .te-emph,
+.messenger-mode.msg-narration-hidden .te-mark { display: none; }
+
 /* 선택 영역 좌측 세로선 */
 .te-bar {
   display: inline-block;
@@ -432,33 +489,6 @@ body {
 .meta-title { font-weight: 700; line-height: 1.3; }
 .meta-subtitle { line-height: 1.5; }
 .meta-author { line-height: 1.5; text-indent: 0; }
-
-/* 메신저 테마 */
-.messenger { display: flex; flex-direction: column; text-align: left; }
-.msg-line { display: flex; gap: 8px; align-items: flex-start; }
-.msg-line.is-me { flex-direction: row-reverse; }
-.msg-avatar {
-  flex: 0 0 auto;
-  border-radius: 40%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 600;
-  overflow: hidden;
-}
-.msg-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.msg-line.is-me .msg-body { align-items: flex-end; margin-left: auto; }
-.msg-name { font-weight: 600; }
-.msg-bubble {
-  padding: 10px 14px;
-  white-space: pre-wrap;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-}
-.msg-narration { margin: 4px 0; white-space: pre-wrap; }
-.msg-narration.is-muted { opacity: 0.7; }
-.msg-emph { font-style: italic; }
-.msg-empty { color: rgba(120, 124, 135, 0.8); margin: 0; }
 
 /* ------------------------------------------------------------------ */
 /* 드래그 편집 팝업                                                     */

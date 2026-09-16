@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { collapseBlankLines, markupRoles } from '../lib/parse';
 import { restoreCaret, saveCaret } from '../lib/caret';
-import { insertPlainText } from '../lib/format';
+import { insertPlainText, rememberSelection, selectImage } from '../lib/format';
 
 /**
  * 본문을 줄 단위 평문으로 읽는다.
@@ -127,9 +127,25 @@ export function Editor({
       aria-multiline="true"
       aria-label="본문"
       onInput={scheduleWork}
+      onKeyUp={() => { const root = rootRef.current; if (root) rememberSelection(root); }}
+      onMouseUp={() => { const root = rootRef.current; if (root) rememberSelection(root); }}
+      onClick={(event) => {
+        // 이미지는 클릭만 해도 잡히게 한다 (드래그하지 않아도 크기·정렬을 바꿀 수 있도록)
+        const target = event.target as HTMLElement;
+        const root = rootRef.current;
+        if (!root) return;
+        root.querySelectorAll('.te-img.is-picked').forEach((el) => el.classList.remove('is-picked'));
+        if (target.tagName === 'IMG' && target.dataset.teImg === 'true') {
+          target.classList.add('is-picked');
+          selectImage(target as HTMLImageElement);
+          document.dispatchEvent(new Event('selectionchange'));
+        }
+      }}
       onCompositionStart={() => { composingRef.current = true; }}
       onCompositionEnd={() => { composingRef.current = false; scheduleWork(); }}
       onBlur={() => {
+        const root = rootRef.current;
+        if (root) rememberSelection(root);
         window.clearTimeout(timerRef.current);
         if (autoParse) remark();
         publish();
